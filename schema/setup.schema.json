@@ -132,6 +132,9 @@
         "color": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "offset_mm": {
+          "$ref": "#/$defs/vec3"
         }
       },
       "required": [

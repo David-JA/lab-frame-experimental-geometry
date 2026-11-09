@@ -12,7 +12,8 @@
           30,
           180
         ],
-        "color": "#627d98"
+        "color": "#627d98",
+        "offset_mm": [0,-15,0]
       },
       "provenance": "synthetic"
     },
@@ -39,10 +40,11 @@
         "shape": "cylinder",
         "size_mm": [
           90,
-          12,
-          90
+          90,
+          12
         ],
-        "color": "#d0a868"
+        "color": "#d0a868",
+        "offset_mm": [0,0,-40]
       },
       "provenance": "synthetic"
     },
@@ -57,7 +59,8 @@
           80,
           10
         ],
-        "color": "#b2bcc9"
+        "color": "#b2bcc9",
+        "offset_mm": [0,0,-25]
       },
       "provenance": "synthetic"
     },

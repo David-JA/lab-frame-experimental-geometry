@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "devices": [
+    {
+      "id": "rotary",
+      "type": "rotary",
+      "output_frame": "R",
+      "visual": {
+        "shape": "cylinder",
+        "size_mm": [
+          180,
+          30,
+          180
+        ],
+        "color": "#627d98"
+      },
+      "provenance": "synthetic"
+    },
+    {
+      "id": "hexapod",
+      "type": "hexapod",
+      "output_frame": "H1",
+      "visual": {
+        "shape": "plate",
+        "size_mm": [
+          240,
+          12,
+          240
+        ],
+        "color": "#9bb6c9"
+      },
+      "provenance": "synthetic"
+    },
+    {
+      "id": "theta",
+      "type": "theta",
+      "output_frame": "P1",
+      "visual": {
+        "shape": "cylinder",
+        "size_mm": [
+          90,
+          12,
+          90
+        ],
+        "color": "#d0a868"
+      },
+      "provenance": "synthetic"
+    },
+    {
+      "id": "xy",
+      "type": "xy",
+      "output_frame": "P2",
+      "visual": {
+        "shape": "box",
+        "size_mm": [
+          80,
+          80,
+          10
+        ],
+        "color": "#b2bcc9"
+      },
+      "provenance": "synthetic"
+    },
+    {
+      "id": "sample",
+      "type": "sample",
+      "output_frame": "S",
+      "visual": {
+        "shape": "cylinder",
+        "size_mm": [
+          15,
+          15,
+          35
+        ],
+        "color": "#e89c65"
+      },
+      "provenance": "synthetic",
+      "crystal": {
+        "frame": "C",
+        "cell": {
+          "a": 3.5,
+          "b": 3.5,
+          "c": 3.5,
+          "alpha_deg": 90,
+          "beta_deg": 90,
+          "gamma_deg": 90
+        },
+        "center_s_mm": [
+          0,
+          0,
+          0
+        ],
+        "target_point_s_mm": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "detector",
+      "type": "detector",
+      "output_frame": "D",
+      "visual": {
+        "shape": "detector",
+        "size_mm": [
+          460,
+          460,
+          20
+        ],
+        "color": "#607a8a"
+      },
+      "provenance": "synthetic",
+      "detector": {
+        "pixels": [
+          4288,
+          4288
+        ],
+        "pixel_size_mm": [
+          0.1,
+          0.1
+        ],
+        "provenance": "source_statement"
+      }
+    }
+  ]
+}

@@ -1,0 +1,320 @@
+{
+  "schema_version": 1,
+  "frames": [
+    {
+      "id": "R",
+      "parent": "LAB",
+      "mount": {
+        "position_mm": [
+          0,
+          0,
+          0
+        ],
+        "quaternion_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "motion": {
+        "kind": "revolute",
+        "joint": "rotary.phi",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "center_mm": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "H0",
+      "parent": "R",
+      "mount": {
+        "position_mm": [
+          0,
+          0,
+          0
+        ],
+        "quaternion_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "motion": {
+        "kind": "fixed"
+      }
+    },
+    {
+      "id": "H1",
+      "parent": "H0",
+      "mount": {
+        "position_mm": [
+          0,
+          100,
+          0
+        ],
+        "quaternion_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "motion": {
+        "kind": "six_dof",
+        "joints": [
+          "hexapod.x",
+          "hexapod.y",
+          "hexapod.z",
+          "hexapod.u",
+          "hexapod.v",
+          "hexapod.w"
+        ],
+        "pivot_mm": [
+          0,
+          200,
+          0
+        ],
+        "rotation_convention": "extrinsic_xyz"
+      }
+    },
+    {
+      "id": "P0",
+      "parent": "H1",
+      "mount": {
+        "position_mm": [
+          0,
+          100,
+          0
+        ],
+        "quaternion_xyzw": [
+          -0.7071067811865476,
+          0,
+          0,
+          0.7071067811865476
+        ]
+      },
+      "motion": {
+        "kind": "fixed"
+      }
+    },
+    {
+      "id": "P1",
+      "parent": "P0",
+      "mount": {
+        "position_mm": [
+          0,
+          0,
+          0
+        ],
+        "quaternion_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "motion": {
+        "kind": "revolute",
+        "joint": "theta.angle",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "center_mm": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "P2",
+      "parent": "P1",
+      "mount": {
+        "position_mm": [
+          0,
+          0,
+          0
+        ],
+        "quaternion_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "motion": {
+        "kind": "xy_translation",
+        "joints": [
+          "xy.x",
+          "xy.y"
+        ],
+        "axes": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "id": "S",
+      "parent": "P2",
+      "mount": {
+        "position_mm": [
+          0,
+          0,
+          0
+        ],
+        "quaternion_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "motion": {
+        "kind": "fixed"
+      }
+    },
+    {
+      "id": "D",
+      "parent": "LAB",
+      "mount": {
+        "position_mm": [
+          0,
+          200,
+          1000
+        ],
+        "quaternion_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "motion": {
+        "kind": "fixed"
+      }
+    }
+  ],
+  "joints": [
+    {
+      "id": "rotary.phi",
+      "unit": "deg"
+    },
+    {
+      "id": "hexapod.x",
+      "unit": "mm"
+    },
+    {
+      "id": "hexapod.y",
+      "unit": "mm"
+    },
+    {
+      "id": "hexapod.z",
+      "unit": "mm"
+    },
+    {
+      "id": "hexapod.u",
+      "unit": "deg"
+    },
+    {
+      "id": "hexapod.v",
+      "unit": "deg"
+    },
+    {
+      "id": "hexapod.w",
+      "unit": "deg"
+    },
+    {
+      "id": "theta.angle",
+      "unit": "deg"
+    },
+    {
+      "id": "xy.x",
+      "unit": "mm"
+    },
+    {
+      "id": "xy.y",
+      "unit": "mm"
+    }
+  ],
+  "beam": {
+    "frame": "LAB",
+    "point_mm": [
+      0,
+      200,
+      0
+    ],
+    "direction": [
+      0,
+      0,
+      1
+    ]
+  },
+  "supports": [
+    {
+      "base_frame": "H0",
+      "moving_frame": "H1",
+      "base_point_mm": [
+        90,
+        0,
+        0
+      ],
+      "moving_point_mm": [
+        70,
+        0,
+        0
+      ]
+    },
+    {
+      "base_frame": "H0",
+      "moving_frame": "H1",
+      "base_point_mm": [
+        -44.99999999999998,
+        0,
+        77.94228634059948
+      ],
+      "moving_point_mm": [
+        -34.999999999999986,
+        0,
+        60.62177826491071
+      ]
+    },
+    {
+      "base_frame": "H0",
+      "moving_frame": "H1",
+      "base_point_mm": [
+        -45.00000000000004,
+        0,
+        -77.94228634059945
+      ],
+      "moving_point_mm": [
+        -35.00000000000003,
+        0,
+        -60.62177826491069
+      ]
+    }
+  ],
+  "alignment_tolerance": {
+    "angle_deg": 0.000001,
+    "distance_mm": 0.000001
+  }
+}

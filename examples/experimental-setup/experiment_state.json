@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "joints": {
+    "rotary.phi": 0,
+    "hexapod.x": 0,
+    "hexapod.y": 0,
+    "hexapod.z": 0,
+    "hexapod.u": 0,
+    "hexapod.v": 0,
+    "hexapod.w": 0,
+    "theta.angle": 0,
+    "xy.x": 0,
+    "xy.y": 0
+  },
+  "samples": {
+    "sample": {
+      "orientation_quaternion_xyzw": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "target_indices": [
+        0,
+        0,
+        1
+      ],
+      "direction_type": "direct"
+    }
+  },
+  "display": {
+    "frames": true,
+    "crystal": true,
+    "lattice": true
+  }
+}

@@ -1,0 +1,573 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lab-frame-experimental-geometry.local/setup.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "devices": {
+      "$ref": "#/$defs/devices"
+    },
+    "assembly": {
+      "$ref": "#/$defs/assembly"
+    },
+    "experiment_state": {
+      "$ref": "#/$defs/experiment_state"
+    }
+  },
+  "required": [
+    "schema_version",
+    "devices",
+    "assembly",
+    "experiment_state"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "quat": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "mount": {
+      "type": "object",
+      "properties": {
+        "position_mm": {
+          "$ref": "#/$defs/vec3"
+        },
+        "quaternion_xyzw": {
+          "$ref": "#/$defs/quat"
+        }
+      },
+      "required": [
+        "position_mm",
+        "quaternion_xyzw"
+      ],
+      "additionalProperties": false
+    },
+    "axis": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "string",
+          "minLength": 1
+        },
+        "point_mm": {
+          "$ref": "#/$defs/vec3"
+        },
+        "direction": {
+          "$ref": "#/$defs/vec3"
+        }
+      },
+      "required": [
+        "frame",
+        "point_mm",
+        "direction"
+      ],
+      "additionalProperties": false
+    },
+    "cell": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "number"
+        },
+        "b": {
+          "type": "number"
+        },
+        "c": {
+          "type": "number"
+        },
+        "alpha_deg": {
+          "type": "number"
+        },
+        "beta_deg": {
+          "type": "number"
+        },
+        "gamma_deg": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "c",
+        "alpha_deg",
+        "beta_deg",
+        "gamma_deg"
+      ],
+      "additionalProperties": false
+    },
+    "visual": {
+      "type": "object",
+      "properties": {
+        "shape": {
+          "enum": [
+            "plate",
+            "cylinder",
+            "box",
+            "detector"
+          ]
+        },
+        "size_mm": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      },
+      "required": [
+        "shape",
+        "size_mm",
+        "color"
+      ],
+      "additionalProperties": false
+    },
+    "device": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "rotary",
+            "hexapod",
+            "theta",
+            "xy",
+            "sample",
+            "detector",
+            "fixture"
+          ]
+        },
+        "output_frame": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visual": {
+          "$ref": "#/$defs/visual"
+        },
+        "provenance": {
+          "enum": [
+            "synthetic",
+            "source_statement"
+          ]
+        },
+        "crystal": {
+          "type": "object",
+          "properties": {
+            "frame": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cell": {
+              "$ref": "#/$defs/cell"
+            },
+            "center_s_mm": {
+              "$ref": "#/$defs/vec3"
+            },
+            "target_point_s_mm": {
+              "$ref": "#/$defs/vec3"
+            }
+          },
+          "required": [
+            "frame",
+            "cell",
+            "center_s_mm",
+            "target_point_s_mm"
+          ],
+          "additionalProperties": false
+        },
+        "detector": {
+          "type": "object",
+          "properties": {
+            "pixels": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "pixel_size_mm": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "provenance": {
+              "enum": [
+                "synthetic",
+                "source_statement"
+              ]
+            }
+          },
+          "required": [
+            "pixels",
+            "pixel_size_mm",
+            "provenance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "output_frame",
+        "visual",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "joint": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "enum": [
+            "mm",
+            "deg"
+          ]
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "id",
+        "unit"
+      ],
+      "additionalProperties": false
+    },
+    "motion": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "fixed"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "revolute"
+            },
+            "joint": {
+              "type": "string",
+              "minLength": 1
+            },
+            "axis": {
+              "$ref": "#/$defs/vec3"
+            },
+            "center_mm": {
+              "$ref": "#/$defs/vec3"
+            }
+          },
+          "required": [
+            "kind",
+            "joint",
+            "axis",
+            "center_mm"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "six_dof"
+            },
+            "joints": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 6,
+              "maxItems": 6
+            },
+            "pivot_mm": {
+              "$ref": "#/$defs/vec3"
+            },
+            "rotation_convention": {
+              "const": "extrinsic_xyz"
+            }
+          },
+          "required": [
+            "kind",
+            "joints",
+            "pivot_mm",
+            "rotation_convention"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "xy_translation"
+            },
+            "joints": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "axes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/vec3"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "kind",
+            "joints",
+            "axes"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "frame": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mount": {
+          "$ref": "#/$defs/mount"
+        },
+        "motion": {
+          "$ref": "#/$defs/motion"
+        }
+      },
+      "required": [
+        "id",
+        "parent",
+        "mount",
+        "motion"
+      ],
+      "additionalProperties": false
+    },
+    "sampleState": {
+      "type": "object",
+      "properties": {
+        "orientation_quaternion_xyzw": {
+          "$ref": "#/$defs/quat"
+        },
+        "target_indices": {
+          "$ref": "#/$defs/vec3"
+        },
+        "direction_type": {
+          "enum": [
+            "direct",
+            "reciprocal"
+          ]
+        }
+      },
+      "required": [
+        "orientation_quaternion_xyzw",
+        "target_indices",
+        "direction_type"
+      ],
+      "additionalProperties": false
+    },
+    "devices": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/device"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "schema_version",
+        "devices"
+      ],
+      "additionalProperties": false
+    },
+    "assembly": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frame"
+          },
+          "minItems": 1
+        },
+        "joints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/joint"
+          }
+        },
+        "beam": {
+          "$ref": "#/$defs/axis"
+        },
+        "supports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "base_frame": {
+                "type": "string",
+                "minLength": 1
+              },
+              "moving_frame": {
+                "type": "string",
+                "minLength": 1
+              },
+              "base_point_mm": {
+                "$ref": "#/$defs/vec3"
+              },
+              "moving_point_mm": {
+                "$ref": "#/$defs/vec3"
+              }
+            },
+            "required": [
+              "base_frame",
+              "moving_frame",
+              "base_point_mm",
+              "moving_point_mm"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "alignment_tolerance": {
+          "type": "object",
+          "properties": {
+            "angle_deg": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 90
+            },
+            "distance_mm": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "angle_deg",
+            "distance_mm"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "frames",
+        "joints",
+        "beam",
+        "supports",
+        "alignment_tolerance"
+      ],
+      "additionalProperties": false
+    },
+    "experiment_state": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "joints": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "samples": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/sampleState"
+          }
+        },
+        "display": {
+          "type": "object",
+          "properties": {
+            "frames": {
+              "type": "boolean"
+            },
+            "crystal": {
+              "type": "boolean"
+            },
+            "lattice": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "frames",
+            "crystal",
+            "lattice"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "joints",
+        "samples",
+        "display"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Obsidian #38：G0/G1 最小实现方案与验收 Spec
 
-Status: Draft
+Status: Active
 Issue: [Obsidian #38](https://github.com/David-JA/obsidian/issues/38)
 Created: 2026-11-09
 Decision owner: Maintainer
@@ -9,13 +9,13 @@ Decision owner: Maintainer
 
 为 Lab-Frame Experimental Geometry 建立可直接指导 G0/G1 开发的最小合同：在统一 LAB 坐标系中，以参数驱动真实的装配层级，计算设备位姿与晶体方向，并通过本地 Three.js 页面和程序接口消费同一份状态。
 
-本轮交付是 Spec 与 README 导航，不是 G0/G1 实现。本文中的源码路径、命令、测试与依赖均为拟实施内容；当前仓库尚无应用、依赖或可执行测试。设计评审通过不等于实现授权或 #38 验收。
+2026-11-09 完成 Spec 与 README 导航；2026-11-10 获用户明确授权，开始按本合同推进本地实现。实施结果仅在 Tasks/Outcome 回填；设计评审通过不等于 #38 的实现验收。
 
 首期包含固定装配、φ、六轴 XYZ/UVW、θ→XY、样品/晶体、独立探测器和光束、配置加载、状态保存恢复与比较、基础查询及界面。G2 的衍射交点、运动序列回放、交互拾取测量、更多设备导入，以及自动对准、硬件控制、真实支链求解均不纳入。
 
 ## Current evidence
 
-- 本地源码基线仅含 README；仓库独立、无远端、无 PR，没有可复用的本项目运动学实现。
+- 设计时的本地源码基线仅含 README；仓库独立、无远端、无 PR，没有可复用的本项目运动学实现。
 - #38 已明确 `LAB→R→H0→H1→P0→P1(θ)→P2(XY)→S→C`；θ 在下、XY 在上由用户最终确认，不再作为待选方案。
 - #38 要求 `+Y_lab` 向上、`+Z_lab` 入射、右手系、列向量变换；hexapod 变换须包含零位安装 `T0`。C 是正交笛卡尔 frame，直接晶格基矢 A 不必正交。
 - 实测设备尺寸、安装 pose、控制器 UVW 映射、行程及晶体取向文件尚未提供。本 Spec 可以形成合成场景的正确性闭合，不宣称真实装置校准或运动可执行性。
@@ -46,7 +46,7 @@ Decision owner: Maintainer
 4. φ 轴固定在 LAB；H0 不继承 H1 倾转；θ 的父级为 P0，XY 的父级为 θ 输出 P1。探测器和 beam 固定于 LAB。
 5. 输入/输出显式携带坐标系与单位；机械 mm、晶格 Å、外部角度 deg。直接方向与倒易方向分开，不把晶格基底当正交 frame。
 6. 示例所有机械尺寸、cell、取向和行程均标为 `hypothesis / synthetic`。探测器 4288²、0.1 mm 来自 Issue 声明，身份是 `source_statement`，不是本仓实测规格。
-7. 保留本地 Git；当前不推送、不建 PR、不安装依赖或实现功能。未来实施需要独立授权，Spec PASS 本身不触发开工。
+7. 保留本地 Git，不推送、不建 PR。2026-11-10 的用户授权允许实施、安装所选项目依赖，并在必要节点经 Astra/Terra 双 review 通过后本地提交；不扩张到真实仪器或 G2。
 
 ## Evidence basis
 
@@ -80,7 +80,7 @@ Decision owner: Maintainer
 
 **Decision: 单一 TypeScript 实现，计算与渲染分离。**
 - Selected: 一个 npm 项目；TypeScript + Vite + Three.js，原生 HTML 表单，不引入 UI 框架。Ajv 检查 JSON Schema；Vitest 做无浏览器数值/API 测试；Playwright 只承担三条用户闭环。
-- Rationale and impact: 浏览器与 Node 共享计算核心，避免 Python/Three.js 两套物理状态；该工具有真实长期交互消费者，因此使用模块和专属测试，研究 Notebook 不作为产品入口。无需为本轮创建这些模块或安装依赖。
+- Rationale and impact: 浏览器与 Node 共享计算核心，避免 Python/Three.js 两套物理状态；该工具有真实长期交互消费者，因此使用模块和专属测试，研究 Notebook 不作为产品入口。
 - 实施 T1 核对选定依赖的 engines/兼容性与许可证，记录实际 Node/npm、锁定依赖到 `package-lock.json` 后再使用 `npm ci`。本轮不指定未经安装核验的具体版本，不承诺所有版本组合兼容。
 
 拟布局按直接消费者划分，允许实现者合并小文件：
@@ -94,7 +94,7 @@ schema/        聚合 SceneConfig 及三类文件定义（$defs）
 tests/         独立数值、API 和少量浏览器用例
 ```
 
-核心内部使用 JS `number` 的双精度计算，仅实现本工具需要的 vec3、mat3、SE(3)、axis-angle/quaternion 操作；不开发通用线性代数库。矩阵可复用项目内窄 helper，但测试 oracle 不调用它们。源码、锁文件、合成配置与必要测试留 Git；`node_modules/`、`dist/`、`artifacts/` 默认忽略。截图/trace 只为发现失败或关键视觉核查保留，避免每次测试生成永久 receipt/manifest。本轮仍只增加 Spec 和 README 链接。
+核心内部使用 JS `number` 的双精度计算，仅实现本工具需要的 vec3、mat3、SE(3)、axis-angle/quaternion 操作；不开发通用线性代数库。矩阵可复用项目内窄 helper，但测试 oracle 不调用它们。源码、锁文件、合成配置与必要测试留 Git；`node_modules/`、`dist/`、`artifacts/` 默认忽略。截图/trace 只为发现失败或关键视觉核查保留，避免每次测试生成永久 receipt/manifest。
 
 ### 5.2 坐标、pose 与装配合同
 
@@ -229,11 +229,11 @@ $$
 
 ## Tasks
 
-以下为后续实施顺序，当前全部未开始；本轮 Spec 编写不勾选这些任务。
+以下为实施顺序；勾选表示对应实现范围已交付，不代表整个 G0/G1 已接受。
 
-- [ ] **T1 工程入口与配置合同**：建立最小 npm/TS/Vite 工程、锁文件、ignore、Schema 与合成输入；先验证输入定义，交付 typecheck/test/build 命令。不得先搭通用框架。
-- [ ] **T2 独立运动学（先测试）**：实现有限数学、frame 图、φ、T0/pivot、θ→XY 与 world 查询；V01–V05/V09 数值通过后接渲染。
-- [ ] **T3 晶体学与 snapshot/API（先测试）**：实现 cell/A、R_SC、直接/倒易方向、轴线/距离及场景实例 API（含状态比较），完成 V06–V11 和 V13 的无渲染部分。
+- [x] **T1 工程入口与配置合同**：建立最小 npm/TS/Vite 工程、锁文件、ignore、Schema 与合成输入；交付 typecheck/test/build 命令。
+- [x] **T2 独立运动学**：实现有限数学、frame 图、φ、T0/pivot、θ→XY 与 world 查询；V01–V05/V09 的核心数值部分通过，渲染关联由 T4 验证。
+- [x] **T3 晶体学与 snapshot/API**：实现 cell/A、R_SC、直接/倒易方向、轴线/距离及场景实例 API（含状态比较），完成 V06–V11 和 V13 的无渲染验证。
 - [ ] **T4 G0 可视化**：以核心输出驱动 Three.js，简化设备/杆/beam/detector、局部轴与可配置 mount；V12 静态和 φ 部分完成后报告 G0 的有限结果。
 - [ ] **T5 G1 交互**：接入全部表单、方向/中心读数、导入导出及状态比较摘要，完成三条用户闭环；不得在 UI 另写运动学。
 - [ ] **T6 验证与交付说明**：全套验收、浏览器检查、README 命令/限制、必要依赖与示例来源；独立最终实现评审后，再按实际结果请求 G0/G1 接受。
@@ -242,7 +242,7 @@ T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染�
 
 ## Validation
 
-所有表中 Result 当前为 **未执行（仅设计）**。测试以新仓库可丢弃合成数据为输入，不访问 PWA raw、accepted derived 或真实仪器。
+下表定义验收预期，实际执行覆盖见 Outcome；未执行的渲染/浏览器部分不得据数值测试自动标为通过。测试以新仓库可丢弃合成数据为输入，不访问 PWA raw、accepted derived 或真实仪器。
 
 默认数值尺度限定为机械场景 ≤10⁴ mm、正常非退化 cell；位置 absolute tolerance=10⁻⁸ mm，旋转/单位向量分量 absolute tolerance=10⁻¹⁰，独立角度比较≤10⁻⁸ rad，矩阵相对检查补充 rtol=10⁻¹⁰。容差是软件数值判据；若失败先查单位、矩阵顺序与浮点路径，不静默放宽。
 
@@ -264,18 +264,20 @@ T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染�
 
 浏览器数值检查复用 V01–V11 预期，不用截图像素差作物理判据；独立人工看一次示例的层级、杆、晶轴标注和中文/负号/数学符号。页面中文明确使用可用的 Microsoft YaHei 或 Noto Sans CJK SC，不能依赖日/韩字体替代。自动测试只等 revision/条件满足，不固定 sleep。Playwright/WebGL 不可用时记录缺口，不能将页面部分标为通过。
 
-T1 后预期命令：`npm ci`、`npm run typecheck`、`npm test -- --run`、`npm run build`，以及 `npm run test:e2e`；本地预览用 `npm run dev -- --host 127.0.0.1`。首次创建锁文件使用安装命令，之后复验才用 ci。本轮没有 package.json，这些命令尚不可执行，未运行亦不应被报告为通过。
+命令：`npm ci --ignore-scripts`、`npm run typecheck`、`npm test -- --run`、`npm run build`，以及 `npm run test:e2e`；本地预览用 `npm run dev -- --host 127.0.0.1`。首次创建锁文件使用安装命令，之后复验才用 ci。未执行的命令不得被报告为通过；浏览器测试入口在 T4/T5 落地。
 
 ## Outcome
 
-本 Spec 定义 G0/G1 的最小设计与验证计划。实现、数值测试、浏览器验证及实物配置核对均未执行；最终结果在实施后根据实际证据回填。设计审阅结论由任务聊天持有，不把 reviewer PASS 写成 G0/G1 完成。
+2026-11-10：T1–T3 的独立核心已实现。Node 24.17.0 / npm 11.13.0；锁定 Vite 8.3.7、Vitest 5.1.0、Three.js/@types/three 0.187.0、Ajv 8.20.0（均 MIT），TypeScript 7.0.2 与 Playwright 1.65.0（Apache-2.0）。依赖安装禁用 lifecycle scripts。
+
+无渲染数值/API 测试 43 项通过，包含 V01–V03/V05–V11/V13 的主要用例及 V04 的核心父子关系；`typecheck` 与初始 scaffold `build` 通过。加载器拒绝非法运动祖先、跟随运动的探测器、缺失像素参数和偏离 +Z 的入射方向，并保留合法固定支架链。V04 的 Three.js/杆几何及 V12 浏览器闭环尚未执行；当前页面只显示核心查询结果，G0/G1 均未接受。实物参数/标定仍未核验。评审记录由任务聊天持有。
 
 ## Durable outcome
 
 - [ ] 实施后将真实启动/测试命令、配置入口和适用限制更新到 README；不复制第二套 Issue 验收台账。
 - [ ] 仅在出现新的稳定规则或直接使用需求时增加其他文档；本轮不预建 AGENTS、PROJECT_MEMORY、CHANGELOG 或独立执行 ledger。
 
-本轮 README 只新增本 Spec 入口并说明规划状态。此文继续保留于 discuss，供后续实施引用；当前 Draft 表示尚未获得实施阶段的接受，不以设计 review PASS 自动切换 Active/Done。
+README 随真实实施结果更新。此文继续保留于 discuss，承担当前实施合同；Active 来自用户实施授权，只有阶段结果按验收闭合后才可标 Done。
 
 ## Closeout
 

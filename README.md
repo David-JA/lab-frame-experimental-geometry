@@ -21,3 +21,7 @@
 2026-11-09：完成本地 Git 初始化及 README，并确定项目名称为 Lab-Frame Experimental Geometry，尚未开始功能实现。
 
 当前没有应用源码、依赖清单、运行入口或测试程序，无需安装依赖。后续实现及验证以 Obsidian #38 的合同为准；初始化不代表 G0/G1 完成或设备运动学得到验证。
+
+## 开发方案
+
+[G0/G1 最小实现与验收 Spec](./discuss/20261109_issue38_g0_g1_minimal_spec.md) 按 PWA Basic Spec 模板组织，明确计算核心、Three.js 页面、配置与 Agent 接口的开发顺序和验收方法。当前处于设计阶段，尚未开始功能实现；文中的安装、启动和测试命令均为后续计划。

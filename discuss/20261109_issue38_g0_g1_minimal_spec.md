@@ -4,7 +4,7 @@ Status: Active
 Issue: [Obsidian #38](https://github.com/David-JA/obsidian/issues/38)
 Created: 2026-11-09
 Decision owner: Maintainer
-Current phase: T10尺寸/配色已提交59e01ec；T11发布准备经Astra high PASS，按本轮授权提交并发布David-JA公开仓库/Pages中；5173保留，G0/G1用户接受仍Open，保持Active
+Current phase: T10已提交59e01ec；T11经Astra high PASS后已公开仓库并上线Pages，线上交互及Issue双链已核查，状态随本次提交同步；5173保留，等待公开反馈与G0/G1用户接受，保持Active
 
 ## Goal and scope
 
@@ -29,7 +29,7 @@ Current phase: T10尺寸/配色已提交59e01ec；T11发布准备经Astra high P
 
 ## Required deliverables
 
-**当前收尾交付：** T10尺寸及配色已提交59e01ec。T11根据本轮授权，准备公开仓库、README/网页SSRF-BL12SW身份、MIT/参考资料许可边界、反馈入口及Pages工作流；经Astra high通过后提交、创建仓库和推送，并验证线上网页与双向Issue关联。旧handoff不恢复，5173评审服务保留。
+**当前收尾交付：** T10尺寸及配色提交59e01ec，T11发布准备提交72c7121；个人公开仓库、SSRF-BL12SW名称、MIT/参考资料许可边界、反馈入口和Pages均已落地并核查。新仓库反馈#1与Obsidian#38双向链接，#38需求正文和未勾选验收保留。旧handoff不恢复，5173评审服务保留。
 
 **后续 G0/G1 实施：**
 
@@ -51,7 +51,7 @@ Current phase: T10尺寸/配色已提交59e01ec；T11发布准备经Astra high P
 4. φ 轴固定在 LAB；H0 不继承 H1 倾转；θ 的父级为 P0，XY 的父级为 θ 输出 P1。探测器和 beam 固定于 LAB。
 5. 输入/输出显式携带坐标系与单位；机械 mm、晶格 Å、外部角度 deg。直接方向与倒易方向分开，不把晶格基底当正交 frame。
 6. 示例所有机械尺寸、cell、取向和行程均标为 `hypothesis / synthetic`。探测器 4288²、0.1 mm 来自 Issue 声明，身份是 `source_statement`，不是本仓实测规格。
-7. 保留本地 Git，不推送、不建 PR。用户在双 review 通过后明确授权将全部已审改动及状态文档一并提交到本地 Git，并启动仅 loopback 的评审服务；此授权覆盖交接时“不自动提交”的限制，不扩张到真实仪器或 G2。
+7. 早期仅本地Git阶段由T11明确公开发布授权替代；现在保留本地历史并推送个人公开仓库main，Pages自动部署，不建PR。既有loopback评审服务保留，授权不扩张到真实仪器或G2。
 
 ## Evidence basis
 
@@ -293,12 +293,14 @@ T11 公开试用与发布合同（2026-11-10授权）：维护者确认本项目
 
 - [x] **T11a 已审版本落盘**：T10尺寸/配色提交59e01ec。
 - [x] **T11b 发布准备与Astra review**：README/网页标明SSRF-BL12SW；增加反馈链接与单一Issue表单；源码/原创文档MIT，用户图纸排除在MIT之外；核对公开内容范围和版本历史。工作流使用官方Actions固定SHA，Node24、npm ci、91项数值/展示测试、typecheck/build；仅dist进入Pages，构建失败不部署。
-- [ ] **T11c 公开仓库与Pages**：Astra通过后提交并创建个人public repo、配置origin、推送main；Pages使用GitHub Actions/OIDC，Vite构建子路径由PAGES_BASE_PATH配置，本地5173保持根路径且不停止。实际核对repo owner/visibility、remote/main与本地HEAD、Actions部署SHA/结论、线上资源路径与WebGL交互；失败先在本轮范围修复，不将“已创建repo”写成“网页已上线”。
-- [ ] **T11d 反馈与Issue关联**：新仓库创建“公开试用与反馈”跟踪Issue，链接Obsidian#38和Parent#32；回填#38原实施仓库/状态段及反向跟踪链接，保留其需求、数学合同与未勾选验收项。README/网页可直接提Issue。反馈经澄清来源、单位和目标后更新Spec/验收，测试/必要review通过再发布；不承诺自动实现所有反馈。
+- [x] **T11c 公开仓库与Pages**：Astra通过后创建David-JA个人public repo、配置origin、推送main；Pages使用GitHub Actions/OIDC，构建子路径正确，原5173服务保留。owner/visibility、首次remote/main/HEAD、部署SHA/结论和线上WebGL参数交互已读回核对。
+- [x] **T11d 反馈与Issue关联**：新仓库[公开试用与反馈#1](https://github.com/David-JA/lab-frame-experimental-geometry/issues/1)已创建，链接Obsidian#38和Parent#32；#38已仅替换原实施仓库/状态段并反向链接新仓库/Pages/#1，其余正文、数学合同与未勾选验收保持原文。README/网页可直接提Issue；反馈先澄清并更新Spec/必要验收，测试/review后发布，不自动承诺所有建议。
 
 T11验收：本地unit/build及仓库子路径产物预览（非根路径JS/CSS可加载、网页标题/反馈链接正确、WebGL与状态更新可用、窄屏无溢出）；原几何证据继续复用，只对新增入口和发布路径做直接核查。线上以实际部署成功和浏览器加载为准，不把GitHub状态码200单独当成功。新GitHub跟踪Issue为公开试用入口，#38继续持有G0/G1验收；Pages公开不等于硬件标定或正式接受。
 
 T11发布准备结果：91 tests与子路径build/typecheck通过，工作流/Issue表单YAML解析通过。临时4174预览访问仓库子路径，JS/CSS实际返回正常；标题/反馈链接正确，XY.x=1触发状态和1 mm读数，WebGL世界矩阵/探测器误差0、杆端误差1.42×10⁻¹⁴ mm；390 px无横向溢出，无pageerror/失败资源。截图为ignored `artifacts/pages-subpath-{desktop,mobile}.png`，主Agent与Astra直接查看；Astra本轮发布准备PASS、无blocker。公开历史文件范围与凭据特征检查未发现敏感凭据或运行产物；本地5173保留。此记录只说明准备就绪，实际仓库/部署/关联状态由T11c/d的回填持有。
+
+T11发布结果：公开仓库[David-JA/lab-frame-experimental-geometry](https://github.com/David-JA/lab-frame-experimental-geometry)，[Pages线上入口](https://david-ja.github.io/lab-frame-experimental-geometry/)。首次部署72c7121f0a13f6ee5d31bf36d3fdff186a984a85的[Actions运行42815683196](https://github.com/David-JA/lab-frame-experimental-geometry/actions/runs/42815683196)中build/deploy均success；仓库homepage指向Pages、HTTPS启用。线上实测资源无失败、WebGL与XY参数更新正常、390 px无溢出，世界矩阵/探测器误差0，杆端误差1.42×10⁻¹⁴ mm；当前截图为ignored `artifacts/pages-live-{desktop,mobile}.png`。反馈#1由David-JA创建，#38仅状态段更新，保持Open及原验收。临时4174已停止，原5173/PID52776保持HTTP200；本次状态回填将另行提交/推送，最终远端HEAD与部署结果在任务交付前读回确认，不再修改产品功能。
 
 T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染依赖相应核心结果。只在实物参数到位时增加“实物配置核对”这一独立验证，不阻塞合成场景实现，也不把它冒充已完成。
 
@@ -383,4 +385,4 @@ README 随真实实施结果更新。此文继续保留于 discuss，承担当�
 
 - [x] T1–T6 实施结果、设计偏差、验证结果已回填；本地提交已获授权并完成，剩余 G0/G1 用户接受已明确分流。
 - [x] README 的实际命令与限制已同步，G0/G1 的接受范围可核查。
-- [ ] 实施后由用户决定是否继续作为当前合同保留或归档；不因本轮 Spec 交付而归档、不宣称 Merge Ready，也不创建 PR/远端。
+- [ ] 由用户决定是否继续保留或归档；不因公开发布而归档或宣称G0/G1接受。公开远端已按T11授权建立，本次不创建PR。

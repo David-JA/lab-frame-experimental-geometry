@@ -27,7 +27,7 @@ Lab-Frame Experimental Geometry 是面向 **SSRF-BL12SW** 的实验几何工作�
 
 T11经Astra high评审通过，已在个人账户David-JA建立公开仓库并发布Pages，线上WebGL与参数更新、资源子路径及窄屏布局已核查。欢迎通过[公开试用与反馈 #1](https://github.com/David-JA/lab-frame-experimental-geometry/issues/1)交流；它与Obsidian #38双向关联。源码和原创文档MIT，参考图另列许可边界。
 
-T12坐标诊断与设置语言改进已通过Astra high、Terra high两轮内容/视觉review，用户已授权本次提交、个人账户推送与Pages更新；发布结果由Spec及对应Actions记录持有。
+T12坐标诊断与设置语言改进已通过Astra high、Terra high两轮review，以个人账户David-JA推送并更新Pages；线上预设、参数区与窄屏已核查，发布记录见Spec。
 
 当前进度、验证与接受边界由[Spec](./discuss/20261109_issue38_g0_g1_minimal_spec.md)持有；旧handoff已删除，历史版本可从Git查阅。公开试用不等同于G0/G1正式接受。
 

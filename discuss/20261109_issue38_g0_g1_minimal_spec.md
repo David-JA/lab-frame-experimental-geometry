@@ -4,7 +4,7 @@ Status: Active
 Issue: [Obsidian #38](https://github.com/David-JA/obsidian/issues/38)
 Created: 2026-11-09
 Decision owner: Maintainer
-Current phase: T12诊断/粗箭头/中文设置已完成，Astra high与Terra high两轮review PASS；本轮已获个人账户提交/推送及Pages更新授权，进入发布核查；5173保留，G0/G1接受仍Open，保持Active
+Current phase: T12诊断/粗箭头/中文设置提交13b4a53并由David-JA推送，Pages部署及线上核查通过；5173保留，等待后续反馈与G0/G1用户接受，保持Active
 
 ## Goal and scope
 
@@ -29,7 +29,7 @@ Current phase: T12诊断/粗箭头/中文设置已完成，Astra high与Terra hi
 
 ## Required deliverables
 
-**当前收尾交付：** T12坐标诊断分层、实体粗箭头、任务优先中文设置与两组独立应用已实现，Astra high/Terra high复审通过；用户现已授权将本轮修改提交、以David-JA推送并更新Pages。实施/验证证据沿用下方有效结果；发布后另核对远端HEAD、部署结论及线上交互。旧handoff不恢复，5173服务保留。
+**当前收尾交付：** T12经Astra high/Terra high复审通过后，已按用户授权提交13b4a53、由David-JA推送并更新Pages。远端HEAD、部署结论及线上预设/参数区已核查；本次状态回填另行提交，不再改产品功能。旧handoff不恢复，5173服务保留。
 
 **后续 G0/G1 实施：**
 
@@ -310,9 +310,11 @@ T12 可读的诊断与设置（用户截图反馈）：主Agent与Astra high、T
 
 T12结果：92 tests（61核心＋31展示）、最终typecheck/build通过，主JS778.94 kB/gzip206.26 kB，Vite体积提示保留。10条E2E场景已全部取得有效通过证据：完整运行9条PASS，剩余配置旧中文断言适配后专项PASS；文件来源修复后配置/T12两专项再次PASS（12.1 s），未为未受影响的其余8条重复执行。新增流程覆盖直接载入、文件A与编辑器B隔离、无效JSON/零指标/非法四元数原子拒绝、方向/取向互不读草稿、四预设不改snapshot、关闭图层提示、非立方C轴与晶向区别及390 px布局。最终图在ignored `artifacts/readable-{crystal-closeup,lattice-closeup,sample-controls,mobile,file-settings}.png`。
 
-首轮Astra/Terra均指出普通载入误读高级editor的P2；现用独立pendingFileText，选新文件先清空/禁用，读完只接受仍为当前选择的结果；高级JSON保持独立应用。指标不称C正交分量，四元数作为旋转R_SC的表示；相关文字建议已改。第二轮两位均PASS，无blocker。此轮core/Schema/示例物理配置及依赖未改；仅本地工作区修改，线上仍由T11已发布版本持有，用户可在5173先评审。
+首轮Astra/Terra均指出普通载入误读高级editor的P2；现用独立pendingFileText，选新文件先清空/禁用，读完只接受仍为当前选择的结果；高级JSON保持独立应用。指标不称C正交分量，四元数作为旋转R_SC的表示；相关文字建议已改。第二轮两位均PASS，无blocker。此轮core/Schema/示例物理配置及依赖未改；实现时仅本地评审，用户随后单独授权的发布结果见T12d。
 
-- [ ] **T12d 授权发布**：用户已批准本轮全部已审修改提交、David-JA个人账户推送及Pages更新；发布后核对main/HEAD、Actions部署、线上诊断预设与参数区，再回填结果。结束恢复原gh活跃账户，原5173服务保留。README拆分到docs/project_memory.md目前仅讨论组织判断，不纳入本轮文档迁移。
+- [x] **T12d 授权发布**：用户批准本轮全部已审修改提交、David-JA个人账户推送及Pages更新，已执行并核查。结束恢复原gh活跃账户，原5173服务保留。README拆分到docs/project_memory.md目前仅讨论组织判断，不纳入本轮文档迁移。
+
+T12发布结果：代码提交13b4a53dda787e9f032007c802c4c35ed2f14cfa，本地/远端main一致；[Pages运行42835001799](https://github.com/David-JA/lab-frame-experimental-geometry/actions/runs/42835001799)成功。线上默认预设为晶体坐标，切到晶格方向后各显示3个对应标注，snapshot不变；高级取向默认折叠，“应用观察方向”可见，WebGL正常，390 px无横向溢出，无pageerror/失败资源。主Agent已直接查看ignored `artifacts/t12-live-{desktop,mobile}.png`，原5173服务继续保留。当前状态文档另随本次提交推送，最新文档HEAD部署在交付前再读回，不重复未变更的产品测试。
 
 T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染依赖相应核心结果。只在实物参数到位时增加“实物配置核对”这一独立验证，不阻塞合成场景实现，也不把它冒充已完成。
 

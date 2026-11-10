@@ -143,11 +143,15 @@ test('Device blocks: installation inheritance, separate joint values, hints and 
   await applyConfig(page,reordered);
   await page.locator('#collapse-devices').click();await openDevice(page,'rotary');
   await page.getByRole('button',{name:'样品近景'}).click();
-  const hint=page.getByRole('button',{name:'说明：大样品台 · φ · 安装 X / mm',exact:true});await hint.hover();
-  await expect(page.getByRole('tooltip')).toContainText('六轴位移台');await expect(page.getByRole('tooltip')).toContainText('C 晶体坐标系');
-  await expect(page.getByRole('tooltip')).not.toContainText(' → ');
+  const description=page.locator('#device-rotary .device-description');
+  await expect(description).toContainText('六轴位移台');await expect(description).toContainText('C 晶体坐标系');
+  expect(await page.getByRole('tooltip').count()).toBe(0);expect(await page.locator('.parameter-name:is(button)').count()).toBe(0);
+  expect(await description.evaluate(el=>el.parentElement!.lastElementChild===el)).toBe(true);
   await page.screenshot({path:'artifacts/daylight-1062.png',fullPage:true});
-  await hint.focus();await page.keyboard.press('Escape');await expect(page.getByRole('tooltip')).toBeHidden();
+  await openDevice(page,'hexapod');const hexDescription=page.locator('#device-hexapod .device-description');
+  await expect(hexDescription).toContainText('UVW');await hexDescription.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'artifacts/device-description-hexapod.png',fullPage:true});
+  await page.locator('#pivot-hexapod > summary').click();await expect(page.locator('#pivot-hexapod')).toContainText('不平移底座');
   await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await expect(page.locator('canvas[aria-label="实验装置三维场景"]')).toBeInViewport();
@@ -248,9 +252,8 @@ test('Integrated XYtheta: one shared installation, a locked centered base and th
   expect(await card.locator('input').count()).toBe(6);expect(await card.locator('[data-joint]').count()).toBe(3);
   expect(await page.getByRole('spinbutton',{name:'XY 位移台 · 安装 X / mm',exact:true}).count()).toBe(0);
   await expect(base).toContainText('LAB (0, 200, 0)');
-  const xyHint=card.getByRole('button',{name:'说明：xy.x / mm',exact:true});await xyHint.hover();
-  await expect(page.getByRole('tooltip')).toContainText('XY 滑台');await expect(page.getByRole('tooltip')).toContainText('XY 基座固定于 θ 中心');
-  await xyHint.focus();await xyHint.press('Escape');
+  await expect(card.locator('#part-xy')).toContainText('不移动一体台的固定基座');
+  await expect(card.locator('.device-description')).toContainText('X/Y 是一体台内部平移行程');
   await joint(page,'xy.x',3);await joint(page,'xy.y',2);await joint(page,'theta.angle',90);
   await expect(page.locator('#readout')).toContainText('样品中心：-2, 200, -3');await expect(base).toContainText('LAB (0, 200, 0)');
   await openInstallation(page,'theta');const installation=page.getByRole('spinbutton',{name:'XYθ 一体位移台 · 安装 X / mm',exact:true});
@@ -295,6 +298,21 @@ test('Workbench: scene-first layout, motion-first tree inspector and presentatio
   await page.locator('#coordinate-diagnostics').uncheck();expect(await state(page)).toEqual(original);
   await tools(page);await expect(page.locator('#config')).toBeVisible();await expect(page.locator('#reset')).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('#workspace-drawer')).not.toBeVisible();
   await page.getByRole('button',{name:'全景',exact:true}).click();expect(await state(page)).toEqual(original);await page.screenshot({path:'artifacts/workbench-overview.png',fullPage:true});
+  // Small real pans used to alternate the selected label between equally near left/right candidates.
+  const selectedLabel=page.locator('.scene-label[data-selected="true"]');await expect(selectedLabel).toBeVisible();
+  const labelSide=()=>selectedLabel.evaluate(el=>{
+    const layer=el.parentElement!,labels=Array.from(layer.querySelectorAll('.scene-label')),index=labels.indexOf(el),dot=layer.querySelectorAll('circle')[index];
+    const box=el.getBoundingClientRect(),canvas=document.querySelector('#viewport')!.getBoundingClientRect();
+    return Math.sign(box.x-canvas.x+box.width/2-Number(dot.getAttribute('cx')));
+  });
+  const sides=[await labelSide()];
+  await page.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.7);await page.mouse.down({button:'right'});
+  for(let i=1;i<=12;i++){
+    await page.mouse.move(canvas.x+canvas.width*.8+i*.75,canvas.y+canvas.height*.7);
+    await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));sides.push(await labelSide());
+  }
+  await page.mouse.up({button:'right'});expect(new Set(sides).size).toBe(1);expect(await state(page)).toEqual(original);
+  expect((await diagnostics(page)).selected_device_id).toBe('hexapod');
   await openDevice(page,'theta');await joint(page,'xy.x',1);await expect(page.locator('#key-theta')).toHaveText('1 mm');
   await page.getByRole('button',{name:'样品近景'}).click();await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));await checkLabels(page);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'artifacts/workbench-mobile.png'});

@@ -24,6 +24,23 @@ vi.mock('three/addons/controls/OrbitControls.js',async()=>{
 });
 
 describe('screen-space label placement',()=>{
+  it('keeps a valid label side through subpixel pan rounding instead of alternating left and right',()=>{
+    let previousOffset:{x:number;y:number}|undefined;
+    let initialOffset:number|undefined;
+    const sides:number[]=[];
+    for(const x of [200.1,200.9,201.1,201.9,202.1,202.9]){
+      const anchor:LabelAnchor&{previousOffset?:{x:number;y:number}}={x,y:200,width:100,height:30,priority:6,preferSide:true,previousOffset};
+      const box=placeLabels([anchor],800,600)[0]!;
+      sides.push(Math.sign(box.x+box.width/2-x));previousOffset={x:box.x-x,y:box.y-anchor.y};
+      initialOffset??=previousOffset.x;expect(previousOffset.x).toBeCloseTo(initialOffset,8);
+    }
+    expect(sides).toEqual([1,1,1,1,1,1]);
+  });
+  it('abandons a remembered placement when it would leave the canvas',()=>{
+    const anchor:LabelAnchor={x:370,y:200,width:100,height:30,priority:6,preferSide:true,previousOffset:{x:28,y:-15}};
+    const box=placeLabels([anchor],390,400)[0]!;
+    expect(box.x+box.width).toBeLessThan(anchor.x-24);expect(box.x).toBeGreaterThanOrEqual(8);expect(box.x+box.width).toBeLessThanOrEqual(382);
+  });
   it.each([[1062,756],[390,400]])('keeps dense labels separate and inside a %sx%s canvas',(width,height)=>{
     const anchors:LabelAnchor[]=Array.from({length:16},(_,i)=>({x:width/2+i%3,y:height/2+i%4,width:i===0?176:60,height:i===0?64:30,priority:i===0?5:1}));
     const boxes=placeLabels(anchors,width,height);
@@ -162,6 +179,18 @@ describe('viewer display integration',()=>{
     vi.stubGlobal('ResizeObserver',class {observe(){}disconnect(){}});
   });
   afterEach(()=>{viewer?.dispose();viewer=undefined;vi.unstubAllGlobals();});
+  it('remembers the selected label placement across real camera projection updates',()=>{
+    const labels=new SceneLabels(host as unknown as HTMLElement),camera=new PerspectiveCamera(42,host.clientWidth/host.clientHeight,1,10000);
+    labels.set([label('当前装置',undefined,undefined,{emphasis:'selected',priority:6})],0);
+    const sides:number[]=[];
+    for(const x of [0,.05,0,.05,0,.05]){
+      camera.position.set(x,0,1000);camera.lookAt(x,0,0);labels.render(camera);
+      const el=host.querySelectorAll('.scene-label')[0],boxX=Number(el.style.transform.match(/-?\d+(?:\.\d+)?/)![0]);
+      const projected=(new Vector3().project(camera).x+1)*host.clientWidth/2;
+      sides.push(Math.sign(boxX+el.offsetWidth/2-projected));
+    }
+    expect(new Set(sides).size).toBe(1);labels.dispose();
+  });
   it('routes a compact common-point button to a fresh world-position tuple',()=>{
     const inspect=vi.fn(),labels=new SceneLabels(host as unknown as HTMLElement,inspect),entries=[label('目标点',undefined,new Vector3(1,2,3),{targetPoint:true,role:'point'}),label('C',undefined,new Vector3(1,2,3),{visible:false})];
     labels.set(entries,7);

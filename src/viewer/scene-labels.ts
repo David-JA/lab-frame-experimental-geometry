@@ -26,7 +26,7 @@ export function labelPresentation(entries:SceneLabel[],diagnostics=false){
   return {emphasis:coincident?'coincident':selected?'selected':'plain',summary,primary,details,coincident};
 }
 interface Box {x:number;y:number;width:number;height:number}
-export interface LabelAnchor {x:number;y:number;width:number;height:number;priority:number;preferSide?:boolean}
+export interface LabelAnchor {x:number;y:number;width:number;height:number;priority:number;preferSide?:boolean;previousOffset?:{x:number;y:number}}
 export function overlaps(a:Box,b:Box,gap=5){return a.x<b.x+b.width+gap&&a.x+a.width+gap>b.x&&a.y<b.y+b.height+gap&&a.y+a.height+gap>b.y;}
 export function placeLabels(anchors:LabelAnchor[],width:number,height:number):(Box|undefined)[]{
   const result:(Box|undefined)[]=Array(anchors.length).fill(undefined),placed:Box[]=[];
@@ -39,21 +39,26 @@ export function placeLabels(anchors:LabelAnchor[],width:number,height:number):(B
       const key=x+','+y;if(!seen.has(key)){seen.add(key);candidates.push({x,y,width:a.width,height:a.height});}
     };
     const dx=a.preferSide?28:18,dy=a.preferSide?48:18;
+    // Preserve subpixel offsets too: rounding them each frame would leave the caption behind a slow-moving anchor.
+    const previous=a.previousOffset?{x:a.x+a.previousOffset.x,y:a.y+a.previousOffset.y,width:a.width,height:a.height}:undefined;
     for(const x of [a.x+dx,a.x-a.width-dx,a.x-a.width/2])for(const y of [a.y-a.height/2,a.y-a.height-dy,a.y+dy])add(x,y);
     for(let y=8;y<=height-a.height-8;y+=16)for(let x=8;x<=width-a.width-8;x+=24)add(x,y);
     const score=(b:Box)=>Math.hypot(b.x+b.width/2-a.x,b.y+b.height/2-a.y);
     const sidePenalty=(b:Box)=>a.preferSide&&!(b.x>=a.x+24||b.x+b.width<=a.x-24)?1:0;
     candidates.sort((a,b)=>sidePenalty(a)-sidePenalty(b)||score(a)-score(b));
-    const box=candidates.find(b=>!placed.some(p=>overlaps(b,p))&&!anchors.some(p=>{
+    const fits=(b:Box)=>b.x>=8&&b.y>=8&&b.x+b.width<=width-8&&b.y+b.height<=height-8&&!placed.some(p=>overlaps(b,p))&&!anchors.some(p=>{
       // Point badges protect the sample silhouette, not just its zero-area anchor.
       const cx=p.preferSide?24:4,cy=p.preferSide?44:4;
       return p.x>=b.x-cx&&p.x<=b.x+b.width+cx&&p.y>=b.y-cy&&p.y<=b.y+b.height+cy;
-    }));
+    });
+    const nearest=candidates.find(fits);
+    // Keep a still-valid anchor-relative placement; changing the camera must not alternate equal-cost sides.
+    const box=previous&&fits(previous)&&(!nearest||sidePenalty(previous)<=sidePenalty(nearest))?previous:nearest;
     if(box){result[i]=box;placed.push(box);}
   }
   return result;
 }
-interface LabelGroup extends WorldLabelGroup {element:HTMLDivElement;line:SVGLineElement;dot:SVGCircleElement;width:number;height:number}
+interface LabelGroup extends WorldLabelGroup {element:HTMLDivElement;line:SVGLineElement;dot:SVGCircleElement;width:number;height:number;offset?:{x:number;y:number}}
 export class SceneLabels {
   readonly layer=document.createElement('div');
   #svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -116,13 +121,14 @@ export class SceneLabels {
       if(!visible)continue;
       g.width=g.element.offsetWidth;g.height=g.element.offsetHeight;
       const preferSide=g.entries.length>1||g.entries.some(e=>e.visible!==false&&(e.targetPoint||e.emphasis==='selected'));
-      active.push({group:g,anchor:{x:(p.x+1)*width/2,y:(1-p.y)*height/2,width:g.width,height:g.height,priority:Math.max(...g.entries.map(e=>e.priority)),preferSide}});
+      active.push({group:g,anchor:{x:(p.x+1)*width/2,y:(1-p.y)*height/2,width:g.width,height:g.height,priority:Math.max(...g.entries.map(e=>e.priority)),preferSide,previousOffset:g.offset}});
     }
     const boxes=placeLabels(active.map(a=>a.anchor),width,height);
     let hidden=0;
     active.forEach(({group:g,anchor:a},i)=>{
       const box=boxes[i];g.element.hidden=!box;g.line.toggleAttribute('hidden',!box);g.dot.toggleAttribute('hidden',!box);
       if(!box){hidden++;return;}
+      g.offset={x:box.x-a.x,y:box.y-a.y};
       g.element.style.transform=`translate(${box.x}px,${box.y}px)`;
       g.line.setAttribute('x1',String(a.x));g.line.setAttribute('y1',String(a.y));
       g.line.setAttribute('x2',String(Math.max(box.x,Math.min(box.x+box.width,a.x))));g.line.setAttribute('y2',String(Math.max(box.y,Math.min(box.y+box.height,a.y))));

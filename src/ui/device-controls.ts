@@ -37,21 +37,6 @@ export class DeviceControls {
       const affected=descendants(frame);
       return affected.filter(d=>!d.integrated_into||!affected.some(x=>x.id===d.integrated_into)).map(d=>deviceName(d)+(d.integrated_into?' · XY 滑台':'')).join('、')+(affected.some(x=>x.crystal)?'、C 晶体坐标系':'');
     };
-    const tip=document.getElementById('parameter-help')!;
-    const hide=()=>{tip.hidden=true;};
-    const explain=(button:HTMLButtonElement,message:string)=>{
-      const show=()=>{
-        tip.textContent=message;tip.hidden=false;
-        const r=button.getBoundingClientRect(),width=Math.min(320,window.innerWidth-24);
-        tip.style.width=width+'px';tip.style.left=Math.max(12,Math.min(r.left,window.innerWidth-width-12))+'px';
-        tip.style.top=Math.max(12,Math.min(r.bottom+8,window.innerHeight-tip.offsetHeight-12))+'px';
-      };
-      button.setAttribute('aria-describedby','parameter-help');
-      button.addEventListener('mouseenter',show);button.addEventListener('mouseleave',hide);
-      button.addEventListener('focus',show);button.addEventListener('blur',hide);
-      button.addEventListener('click',show);button.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});
-    };
-    host.closest<HTMLElement>('aside')!.onscroll=hide;window.onscroll=hide;window.onresize=hide;hide();
     const text=(tag:string,value:string,parent:HTMLElement,className='')=>{
       const el=document.createElement(tag);el.textContent=value;el.className=className;parent.append(el);return el;
     };
@@ -59,9 +44,9 @@ export class DeviceControls {
       const box=document.createElement('details');box.id=id;box.className=className;box.open=oldOpen.get(id)??open;
       const summary=document.createElement('summary');summary.textContent=title;box.append(summary);parent.append(box);return box;
     };
-    const number=(label:string,aria:string,get:()=>number,parent:HTMLElement,message:string,write:(value:number)=>void,joint?:string,draft=false)=>{
-      const row=document.createElement('div');row.className='parameter';
-      const name=document.createElement('button');name.type='button';name.className='parameter-name';name.textContent=label;name.setAttribute('aria-label','说明：'+aria);explain(name,message);
+    const number=(label:string,aria:string,get:()=>number,parent:HTMLElement,write:(value:number)=>void,joint?:string,draft=false)=>{
+      const row=document.createElement('label');row.className='parameter';
+      const name=document.createElement('span');name.className='parameter-name';name.textContent=label;
       const input=document.createElement('input');input.type='number';input.step='any';input.setAttribute('aria-label',aria);
       if(joint)input.dataset.joint=joint;
       const refresh=()=>input.value=String(get());refresh();if(!draft)this.#refresh.push(refresh);
@@ -99,27 +84,30 @@ export class DeviceControls {
       const summary=box.querySelector('summary')!;
       const relation=document.createElement('span');relation.className='relation';relation.textContent=(parent?deviceName(parent):'LAB 固定基准')+' → '+d.output_frame+(members.length>1?' → '+members.slice(1).map(x=>x.output_frame).join(' / '):'');summary.append(relation);
       const body=document.createElement('div');body.className='device-body';box.append(body);
+      const description=document.createElement('section');description.className='device-description';description.setAttribute('aria-label','装置说明：'+deviceName(d));
+      text('h3','装置说明',description);
+      const notes=document.createElement('dl');description.append(notes);
+      const describe=(title:string,content:string)=>{text('dt',title,notes);text('dd',content,notes);};
       if(!f){
         const placement=detail('placement-'+d.id,'安装与几何 · 绑定参考 '+d.output_frame,body,false,'parameter-block');
         text('p','直接绑定 '+d.output_frame+'，没有独立安装 mount；此处为只读参考。',placement,'small');
         const info=text('p','',placement,'position-info');
         this.#refresh.push(()=>info.textContent='绑定原点 · LAB ('+xyz(scene.get_world_position(d.id).position)+') mm');
         const motion=detail('motion-'+d.id,'自身自由度 · 无独立关节',body,true,'parameter-block');
-        text('p','位姿由绑定坐标系提供；请调整其父级装置或晶体取向。',motion,'small');body.prepend(motion);
+        text('p','位姿由绑定的 '+d.output_frame+' 坐标系提供。',motion,'small');body.prepend(motion);
+        describe('安装关系','直接使用 '+d.output_frame+' 坐标系，没有独立安装位置或机械关节。位置随该坐标系的来源装置变化；LAB 本身固定。');body.append(description);
         continue;
       }
-      const impactInfo=text('p','影响对象：'+impact(d.output_frame),body,'impact');
       // A fixed, unowned parent represents the physical installation base (H0 / P0 in the example).
       const parentFrame=frames.get(f.parent);
       const anchor=(d.type==='hexapod'||d.type==='theta')&&parentFrame?.motion.kind==='fixed'&&!byOutput.has(parentFrame.id)?parentFrame:f;
       const readFrame=()=>scene.save_state().assembly.frames.find(x=>x.id===anchor.id)!;
       const reference=(frame:Frame):Vec3=>frame.motion.kind==='revolute'?frame.motion.center_mm:frame.motion.kind==='six_dof'?frame.motion.pivot_mm:frame.mount.position_mm;
-      const placement=detail('placement-'+d.id,'安装与几何 · '+anchor.parent+' / mm',body,false,'parameter-block');placement.append(impactInfo);
+      const placement=detail('placement-'+d.id,'安装与几何 · '+anchor.parent+' / mm',body,false,'parameter-block');
       text('p',anchor.motion.kind==='revolute'?'旋转轴参考点；随底座一起移动。':anchor.motion.kind==='six_dof'?'零位 pivot 安装参考点，不含本级平移。':anchor.motion.kind==='xy_translation'?'零位安装参考点 '+anchor.id+'，不含本级 XY 行程。':'安装基座 '+anchor.id+' 的原点，坐标相对 '+anchor.parent+'。',placement,'small');
       const positionInfo=text('p','',placement,'position-info');
       this.#refresh.push(()=>{const a=readFrame();positionInfo.textContent='安装参考点 · LAB ('+xyz(point(scene.get_frame_transform('LAB',a.parent).matrix,reference(a)))+') mm';});
-      const installHint='在 '+anchor.parent+' 坐标系中设置安装参考点。整体平移 '+impact(anchor.id)+'；保留关节读数与内部相对装配。其他独立分支和入射光束不会跟随。';
-      for(let i=0;i<3;i++)number(['X','Y','Z'][i],deviceName(d)+' · 安装 '+['X','Y','Z'][i]+' / mm',()=>reference(readFrame())[i],placement,installHint,value=>{
+      for(let i=0;i<3;i++)number(['X','Y','Z'][i],deviceName(d)+' · 安装 '+['X','Y','Z'][i]+' / mm',()=>reference(readFrame())[i],placement,value=>{
         const next=scene.save_state(),a=next.assembly.frames.find(x=>x.id===anchor.id)!,delta=value-reference(a)[i];
         a.mount.position_mm[i]+=delta;
         if(a.motion.kind==='revolute')a.motion.center_mm[i]+=delta;
@@ -127,7 +115,7 @@ export class DeviceControls {
         scene.restore_state(next);
       });
       if(members.length>1){
-        text('p','XY 基座固定在 θ 旋转中心，无独立安装位移或安装转角；下方 X/Y 是一体台内部行程。',placement,'small');
+        text('p','XY 基座固定在 θ 旋转中心，无独立安装位移或安装转角；X/Y 是一体台内部行程。',placement,'small');
         const baseInfo=text('p','',placement,'position-info');baseInfo.dataset.integratedBase=d.id;
         this.#refresh.push(()=>{const axis=scene.get_axis(d.id);baseInfo.textContent='XY 固定基座 · θ 中心 · LAB ('+xyz(point(scene.get_frame_transform('LAB',axis.frame).matrix,axis.point_mm))+') mm';});
       }
@@ -141,27 +129,28 @@ export class DeviceControls {
         for(const id of joints){
           const j=c.assembly.joints.find(j=>j.id===id)!;
           const label=id.split('.').at(-1)!+' / '+j.unit;
-          const hint='这是 '+names[member.type]+' 的关节运动量，作用于 '+mf.parent+' 中定义的轴。联动：'+impact(member.output_frame)+'。不改写安装位置。'+(member.integrated_into?'XY 基座固定于 θ 中心，X/Y 只移动上方滑台和样品。':'')+(mf.motion.kind==='six_dof'?'UVW 使用 '+mf.parent+' 固定轴 X→Y→Z 的演示约定。':'');
-          const input=number(label,id+' / '+j.unit,()=>scene.save_state().experiment_state.joints[id],group,hint,value=>scene.set_joint_value(id,value),id);
+          if(member.integrated_into&&id===joints[0])text('p','X/Y 沿 '+mf.parent+' 中配置的方向移动上方滑台与样品，不移动一体台的固定基座。',group,'small');
+          const input=number(label,id+' / '+j.unit,()=>scene.save_state().experiment_state.joints[id],group,value=>scene.set_joint_value(id,value),id);
           if(j.limits){input.min=String(j.limits[0]);input.max=String(j.limits[1]);}
         }
       }
       if(f.motion.kind==='six_dof'){
         const pivot=detail('pivot-'+d.id,'旋转参考 · pivot / '+f.parent+' / mm',motion,false,'sub-block');
-        text('p','pivot 是旋转参考点，修改它不会平移整个底座。',pivot,'small');
+        text('p','pivot 在 '+f.parent+' 中定义。修改它不平移底座；非零倾转时可能改变下游位置。当前 pivot 的 LAB 坐标包含六轴平移。',pivot,'small');
         for(let i=0;i<3;i++)number(['c_x','c_y','c_z'][i],['c_x','c_y','c_z'][i],()=>{
           const m=scene.save_state().assembly.frames.find(x=>x.id===f.id)!.motion;return m.kind==='six_dof'?m.pivot_mm[i]:0;
-        },pivot,'定义在 '+f.parent+' 中的旋转参考点；非零倾转时会改变下游位置。当前 pivot 的 LAB 坐标还包含六轴平移。',value=>{
+        },pivot,value=>{
           const next=scene.save_state(),m=next.assembly.frames.find(x=>x.id===f.id)!.motion;if(m.kind==='six_dof')m.pivot_mm[i]=value;scene.restore_state(next);
         });
       }
       if(d.crystal){
-        text('p','C 原点与 '+d.output_frame+' 原点重合，随父级继承；R_SC 只改变晶体取向。',motion,'small');
         const crystal=detail('crystal-'+d.id,'晶体取向与目标 · R_SC',motion,true,'sub-block');
+        text('p','R_SC 使用单位四元数 xyzw，表示 '+d.crystal.frame+' 相对 '+d.output_frame+' 的取向。修改后点击“应用晶体参数”；两者原点保持重合，样品机械位姿不变。',crystal,'small');
+        text('p','direct 输入晶向 [uvw]，reciprocal 输入晶面法向 (hkl)；指标不能全为零。',crystal,'small');
         const s=c.experiment_state.samples[d.id],inputs:HTMLInputElement[]=[];
         const labels=['q_x','q_y','q_z','q_w','index_u/h','index_v/k','index_w/l'];
         [...s.orientation_quaternion_xyzw,...s.target_indices].forEach((v,i)=>{
-          inputs.push(number(labels[i],labels[i],()=>v,crystal,i<4?'单位四元数 xyzw，表示 C 相对 S 的取向。只改变晶体方向，不移动 C 原点或机械装置。':'direct 使用 [uvw]，reciprocal 使用 (hkl)；指标需非零。',()=>{},undefined,true));
+          inputs.push(number(labels[i],labels[i],()=>v,crystal,()=>{},undefined,true));
         });
         const select=document.createElement('select');select.id='direction-type';select.setAttribute('aria-label','方向类型');
         for(const [value,label]of [['direct','直接晶向 [uvw]'],['reciprocal','晶面法向 (hkl)']])select.add(new Option(label,value));
@@ -174,6 +163,17 @@ export class DeviceControls {
         });crystal.append(apply);
       }
       body.prepend(motion);
+      const convention=f.motion.kind==='six_dof'?'XYZ 是 '+f.parent+' 中的平移（mm）；UVW 分别绕该坐标系的固定 X、Y、Z 轴转动（deg），按 U→V→W 的演示约定组合。':
+        members.length>1?'θ 绕 '+f.parent+' 中配置的轴旋转，带动 XY 滑台及样品；X/Y 是一体台内部平移行程。旋转正方向遵循右手定则。':
+        f.motion.kind==='revolute'?'绕 '+f.parent+' 中配置的轴旋转，正方向遵循右手定则；下游装配随之转动。':
+        f.motion.kind==='xy_translation'?'X/Y 沿 '+f.parent+' 中配置的两条轴平移；不改变安装零位。':
+        f.parent==='LAB'?'没有独立机械关节；固定在 LAB 中，LAB 是固定基准。':'没有独立机械关节；位姿由父坐标系 '+f.parent+' 决定。';
+      describe('运动约定',convention);
+      const motionImpact=impact(d.output_frame),installationImpact=impact(anchor.id);
+      describe('联动范围',motionImpact+'。'+(f.motion.kind==='fixed'?'':'关节运动不改写安装参数。'));
+      describe('安装位置','安装坐标以 '+anchor.parent+' 为准。调整时平移'+(installationImpact===motionImpact?'上述装配':installationImpact)+'，保留关节读数及内部相对装配；其他独立分支和入射光束不变。');
+      if(d.crystal)describe('样品与晶体',d.crystal.frame+' 原点与 '+d.output_frame+' 原点重合；样品中心与目标点分别定义在 '+d.output_frame+' 中，位置可通过配置修改。');
+      body.append(description);
     }
     const preferred=options.selectedId&&this.#aliases.has(options.selectedId)?options.selectedId:devices.find(d=>integrated(d).length)?.id??devices.find(d=>d.type==='rotary')?.id??ordered[0]?.id;
     if(preferred)this.select(preferred,false);

@@ -4,7 +4,7 @@ Status: Active
 Issue: [Obsidian #38](https://github.com/David-JA/obsidian/issues/38)
 Created: 2026-11-09
 Decision owner: Maintainer
-Current phase: T12诊断/粗箭头/中文设置提交13b4a53并由David-JA推送，Pages部署及线上核查通过；5173保留，等待后续反馈与G0/G1用户接受，保持Active
+Current phase: T12已发布；T13文档分层与Astra high评审完成。仅整理导航与维护知识，G0/G1接受仍Open，保持Active
 
 ## Goal and scope
 
@@ -29,7 +29,7 @@ Current phase: T12诊断/粗箭头/中文设置提交13b4a53并由David-JA推送
 
 ## Required deliverables
 
-**当前收尾交付：** T12经Astra high/Terra high复审通过后，已按用户授权提交13b4a53、由David-JA推送并更新Pages。远端HEAD、部署结论及线上预设/参数区已核查；本次状态回填另行提交，不再改产品功能。旧handoff不恢复，5173服务保留。
+**当前收尾交付：** T13已将README收敛为首次使用入口，稳定维护知识集中到docs/project_memory.md；任务、阶段验证和验收仍由本Spec持有，尺寸记录保持原位。Astra high review PASS，按用户授权提交并由David-JA推送，实际版本以Git记录为准。不改产品功能，5173服务保留。
 
 **后续 G0/G1 实施：**
 
@@ -312,9 +312,13 @@ T12结果：92 tests（61核心＋31展示）、最终typecheck/build通过，�
 
 首轮Astra/Terra均指出普通载入误读高级editor的P2；现用独立pendingFileText，选新文件先清空/禁用，读完只接受仍为当前选择的结果；高级JSON保持独立应用。指标不称C正交分量，四元数作为旋转R_SC的表示；相关文字建议已改。第二轮两位均PASS，无blocker。此轮core/Schema/示例物理配置及依赖未改；实现时仅本地评审，用户随后单独授权的发布结果见T12d。
 
-- [x] **T12d 授权发布**：用户批准本轮全部已审修改提交、David-JA个人账户推送及Pages更新，已执行并核查。结束恢复原gh活跃账户，原5173服务保留。README拆分到docs/project_memory.md目前仅讨论组织判断，不纳入本轮文档迁移。
+- [x] **T12d 授权发布**：用户批准本轮全部已审修改提交、David-JA个人账户推送及Pages更新，已执行并核查。结束恢复原gh活跃账户，原5173服务保留。README拆分随后由用户单独授权，见T13。
 
 T12发布结果：代码提交13b4a53dda787e9f032007c802c4c35ed2f14cfa，本地/远端main一致；[Pages运行42835001799](https://github.com/David-JA/lab-frame-experimental-geometry/actions/runs/42835001799)成功。线上默认预设为晶体坐标，切到晶格方向后各显示3个对应标注，snapshot不变；高级取向默认折叠，“应用观察方向”可见，WebGL正常，390 px无横向溢出，无pageerror/失败资源。主Agent已直接查看ignored `artifacts/t12-live-{desktop,mobile}.png`，原5173服务继续保留。当前状态文档另随本次提交推送，最新文档HEAD部署在交付前再读回，不重复未变更的产品测试。
+
+T13 文档分层：README面向首次试用和启动，新增[项目维护记忆](../docs/project_memory.md)面向架构、实现约定、维护与验证入口；尺寸/原图继续由原记录持有，不复制数字表。测试计数、耗时、截图清单和逐轮review不迁入维护记忆，保留本Spec及Git作为出处。Astra high只读review PASS，无blocker；对照原README、当前源码与运行配置，未发现关键遗漏或证明升级。27个本地Markdown链接可解析，diff检查通过。纯文档整理未重复产品测试；按本轮授权提交、David-JA推送。
+
+- [x] **T13 文档整理与评审**：完成必要内容承接和双向导航，Astra high确认无关键约定遗漏或Spec台账重复；发布依本轮授权执行，保留原5173服务。
 
 T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染依赖相应核心结果。只在实物参数到位时增加“实物配置核对”这一独立验证，不阻塞合成场景实现，也不把它冒充已完成。
 

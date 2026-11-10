@@ -6,9 +6,16 @@ const fmt=(n:number)=>Math.abs(n)<1e-9?'0':String(Number(n.toFixed(6)));
 const xyz=(p:Vec3)=>p.map(fmt).join(', ');
 export class DeviceControls {
   #refresh:(()=>void)[]=[];
-  constructor(private scene:Scene,private host:HTMLElement,private edit:(action:()=>void,input?:HTMLInputElement)=>void){
+  #cards=new Map<string,HTMLDetailsElement>();#rows=new Map<string,HTMLButtonElement>();#aliases=new Map<string,string>();
+  #selectedId='';#onSelect?: (id:string)=>void;#title:HTMLElement;
+  constructor(private scene:Scene,private host:HTMLElement,private edit:(action:()=>void,input?:HTMLInputElement)=>void,options:{selectedId?:string;onSelect?:(id:string)=>void}={}){
     const oldOpen=new Map(Array.from(host.querySelectorAll<HTMLDetailsElement>('details')).map(el=>[el.id,el.open]));
-    host.replaceChildren();
+    const oldExpanded=new Map(Array.from(host.querySelectorAll<HTMLButtonElement>('.device-tree-row')).map(el=>[el.dataset.device!,el.getAttribute('aria-expanded')]));
+    this.#onSelect=options.onSelect;host.replaceChildren();
+    const tree=document.createElement('ul');tree.className='device-tree';tree.setAttribute('role','tree');tree.setAttribute('aria-label','装置树');
+    const inspector=document.createElement('section');inspector.className='device-inspector';inspector.setAttribute('aria-label','当前设备参数');
+    this.#title=document.createElement('h2');this.#title.id='selected-device-name';inspector.append(this.#title);host.append(tree,inspector);
+    const branches=new Map<string,HTMLUListElement>();
     const c=scene.save_state(),frames=new Map(c.assembly.frames.map(f=>[f.id,f]));
     const devices=c.devices.devices,byOutput=new Map(devices.map(d=>[d.output_frame,d]));
     const frameParent=(id:string)=>frames.get(id)?.parent??devices.find(d=>d.crystal?.frame===id)?.output_frame;
@@ -65,27 +72,49 @@ export class DeviceControls {
     for(const d of ordered){
       if(d.integrated_into)continue;
       const parent=visibleParent(d),f=frames.get(d.output_frame),members=[d,...integrated(d)];
-      const box=detail('device-'+d.id,deviceName(d),host,d.type==='rotary','device-card');
-      box.dataset.device=d.id;box.dataset.devices=JSON.stringify(members.map(x=>x.id));box.style.setProperty('--depth',String(depth(d)));
+      const item=document.createElement('li');item.setAttribute('role','none');
+      const row=document.createElement('button');row.type='button';row.className='device-tree-row';row.dataset.device=d.id;
+      row.setAttribute('role','treeitem');row.setAttribute('aria-level',String(depth(d)+1));row.setAttribute('aria-selected','false');row.tabIndex=-1;
+      const toggle=document.createElement('span');toggle.className='tree-toggle';toggle.setAttribute('aria-hidden','true');
+      const label=document.createElement('span');label.textContent=deviceName(d);row.append(toggle,label);item.append(row);
+      (parent?branches.get(parent.id)!:tree).append(item);
+      const children=devices.filter(x=>!x.integrated_into&&visibleParent(x)?.id===d.id);
+      if(children.length){
+        const list=document.createElement('ul');list.setAttribute('role','group');item.append(list);branches.set(d.id,list);
+        row.setAttribute('aria-expanded',oldExpanded.get(d.id)??'true');list.hidden=row.getAttribute('aria-expanded')==='false';
+        toggle.textContent=list.hidden?'▸':'▾';
+        toggle.onclick=e=>{e.stopPropagation();list.hidden=!list.hidden;row.setAttribute('aria-expanded',String(!list.hidden));toggle.textContent=list.hidden?'▸':'▾';if(list.hidden&&list.contains(this.#rows.get(this.#selectedId)??null))this.select(d.id);};
+      }else toggle.textContent='·';
+      row.onclick=()=>this.select(d.id);
+      row.onkeydown=e=>{
+        const visible=Array.from(tree.querySelectorAll<HTMLButtonElement>('.device-tree-row')).filter(el=>el.getClientRects().length),index=visible.indexOf(row);
+        if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();visible[Math.max(0,Math.min(visible.length-1,index+(e.key==='ArrowDown'?1:-1)))]?.focus();}
+        if(e.key==='ArrowRight'&&branches.has(d.id)){e.preventDefault();if(row.getAttribute('aria-expanded')==='false')toggle.click();else branches.get(d.id)!.querySelector<HTMLButtonElement>('.device-tree-row')?.focus();}
+        if(e.key==='ArrowLeft'){e.preventDefault();if(row.getAttribute('aria-expanded')==='true')toggle.click();else if(parent)this.#rows.get(parent.id)?.focus();}
+      };
+      this.#rows.set(d.id,row);
+      const box=detail('device-'+d.id,deviceName(d),inspector,true,'device-card');box.open=true;
+      this.#cards.set(d.id,box);members.forEach(x=>this.#aliases.set(x.id,d.id));
+      box.dataset.device=d.id;box.dataset.devices=JSON.stringify(members.map(x=>x.id));box.dataset.title=deviceName(d);box.style.setProperty('--depth',String(depth(d)));
       const summary=box.querySelector('summary')!;
       const relation=document.createElement('span');relation.className='relation';relation.textContent=(parent?deviceName(parent):'LAB 固定基准')+' → '+d.output_frame+(members.length>1?' → '+members.slice(1).map(x=>x.output_frame).join(' / '):'');summary.append(relation);
       const body=document.createElement('div');body.className='device-body';box.append(body);
       if(!f){
-        const placement=detail('placement-'+d.id,'安装位置 · 绑定参考 '+d.output_frame,body,true,'parameter-block');
+        const placement=detail('placement-'+d.id,'安装与几何 · 绑定参考 '+d.output_frame,body,false,'parameter-block');
         text('p','直接绑定 '+d.output_frame+'，没有独立安装 mount；此处为只读参考。',placement,'small');
         const info=text('p','',placement,'position-info');
         this.#refresh.push(()=>info.textContent='绑定原点 · LAB ('+xyz(scene.get_world_position(d.id).position)+') mm');
         const motion=detail('motion-'+d.id,'自身自由度 · 无独立关节',body,true,'parameter-block');
-        text('p','位姿由绑定坐标系提供；请调整其父级装置或晶体取向。',motion,'small');
+        text('p','位姿由绑定坐标系提供；请调整其父级装置或晶体取向。',motion,'small');body.prepend(motion);
         continue;
       }
-      text('p','影响对象：'+impact(d.output_frame),body,'impact');
+      const impactInfo=text('p','影响对象：'+impact(d.output_frame),body,'impact');
       // A fixed, unowned parent represents the physical installation base (H0 / P0 in the example).
       const parentFrame=frames.get(f.parent);
       const anchor=(d.type==='hexapod'||d.type==='theta')&&parentFrame?.motion.kind==='fixed'&&!byOutput.has(parentFrame.id)?parentFrame:f;
       const readFrame=()=>scene.save_state().assembly.frames.find(x=>x.id===anchor.id)!;
       const reference=(frame:Frame):Vec3=>frame.motion.kind==='revolute'?frame.motion.center_mm:frame.motion.kind==='six_dof'?frame.motion.pivot_mm:frame.mount.position_mm;
-      const placement=detail('placement-'+d.id,'安装位置 · '+anchor.parent+' / mm',body,true,'parameter-block');
+      const placement=detail('placement-'+d.id,'安装与几何 · '+anchor.parent+' / mm',body,false,'parameter-block');placement.append(impactInfo);
       text('p',anchor.motion.kind==='revolute'?'旋转轴参考点；随底座一起移动。':anchor.motion.kind==='six_dof'?'零位 pivot 安装参考点，不含本级平移。':anchor.motion.kind==='xy_translation'?'零位安装参考点 '+anchor.id+'，不含本级 XY 行程。':'安装基座 '+anchor.id+' 的原点，坐标相对 '+anchor.parent+'。',placement,'small');
       const positionInfo=text('p','',placement,'position-info');
       this.#refresh.push(()=>{const a=readFrame();positionInfo.textContent='安装参考点 · LAB ('+xyz(point(scene.get_frame_transform('LAB',a.parent).matrix,reference(a)))+') mm';});
@@ -144,8 +173,28 @@ export class DeviceControls {
           scene.restore_state(next);
         });crystal.append(apply);
       }
+      body.prepend(motion);
     }
+    const preferred=options.selectedId&&this.#aliases.has(options.selectedId)?options.selectedId:devices.find(d=>integrated(d).length)?.id??devices.find(d=>d.type==='rotary')?.id??ordered[0]?.id;
+    if(preferred)this.select(preferred,false);
     this.refresh();
+  }
+  get selectedId(){return this.#selectedId;}
+  select(id:string,notify=true){
+    const selected=this.#aliases.get(id);if(!selected)return;
+    this.#selectedId=selected;
+    for(const [key,card]of this.#cards){card.hidden=key!==selected;card.open=true;}
+    for(const [key,row]of this.#rows){row.setAttribute('aria-selected',String(key===selected));row.tabIndex=key===selected?0:-1;}
+    const row=this.#rows.get(selected)!;
+    for(let list=row.parentElement?.parentElement;list&&list.classList.contains('device-tree')===false;list=list.parentElement?.parentElement){
+      if(list instanceof HTMLUListElement){list.hidden=false;const parent=list.previousElementSibling;if(parent instanceof HTMLButtonElement){parent.setAttribute('aria-expanded','true');parent.querySelector('.tree-toggle')!.textContent='▾';}}
+    }
+    this.#title.textContent=this.#cards.get(selected)!.dataset.title!;this.host.dataset.selectedDevice=selected;
+    if(notify)this.#onSelect?.(selected);
+  }
+  setExpanded(expanded:boolean){
+    for(const row of this.#rows.values())if(row.hasAttribute('aria-expanded')){row.setAttribute('aria-expanded',String(expanded));(row.nextElementSibling as HTMLElement).hidden=!expanded;row.querySelector('.tree-toggle')!.textContent=expanded?'▾':'▸';}
+    if(!expanded){let row=this.#rows.get(this.#selectedId);while(row?.closest('ul[role=group]'))row=row.closest('ul[role=group]')!.previousElementSibling as HTMLButtonElement;if(row)this.select(row.dataset.device!);}
   }
   refresh(){this.#refresh.forEach(fn=>fn());}
 }

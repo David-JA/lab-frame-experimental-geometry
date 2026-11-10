@@ -200,7 +200,7 @@ export class DeviceControls {
       describe('联动范围',motionImpact+'。'+(f.motion.kind==='fixed'?'':'关节运动不改写安装参数。'));
       describe('安装位置','安装坐标以 '+anchor.parent+' 为准。调整时平移'+(installationImpact===motionImpact?'上述装配':installationImpact)+'，保留关节读数及内部相对装配；其他独立分支和入射光束不变。');
       if(d.crystal)describe('样品与晶体',d.crystal.frame+' 原点与 '+d.output_frame+' 原点重合；样品中心与目标点分别定义在 '+d.output_frame+' 中，位置可通过配置修改。');
-      if(d.type==='hexapod'&&d.visual.shape==='cylinder')describe('外观示意','银色圆盘和黑色转接板属于同一六轴组件：上部随 '+d.output_frame+'，下部随 '+f.parent+'。支杆只连接配置端点，不参与机构求解。');
+      if(d.type==='hexapod'&&d.visual.shape==='cylinder')describe('外观示意','圆盘与支杆使用主体配色，上下转接板为中灰色金属：上部随 '+d.output_frame+'，下部随 '+f.parent+'。支杆只连接配置端点，不参与机构求解。');
       if(d.description)describe('装置配置',d.description);
       body.append(description);
     }

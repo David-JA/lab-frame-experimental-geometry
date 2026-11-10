@@ -348,10 +348,13 @@ test('Appearance: column height is geometry-only, compact assembly and review vi
 test('Lab heights: independent Z stage in cm, stage elevation, fixed beam and snapshot restore',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173/');
-  await expect(page.locator('#readout')).toContainText('样品中心：0, 1319.5, 0');
-  await expect(page.locator('#target-summary')).toContainText('相对光束高度 -60.5 mm');
+  await expect(page.locator('#readout')).toContainText('样品中心：0, 1209.5, 0');
+  await expect(page.locator('#target-summary')).toContainText('相对光束高度 -170.5 mm');
   await checkViewer(page);await checkLabels(page);
   const initial=(await state(page)).snapshot;
+  expect(initial.devices.devices.find((d:{id:string})=>d.id==='rotary').visual.size_mm).toEqual([450,670,450]);
+  const hex=initial.devices.devices.find((d:{id:string})=>d.id==='hexapod').visual;
+  expect(hex.size_mm).toEqual([348,30,348]);expect(hex.upper_disc_size_mm).toEqual([260,18.2,260]);expect(hex.adapter_thickness_mm).toBe(15);
   await openDevice(page,'z_stage');const height=page.getByRole('spinbutton',{name:'z_stage.z / cm',exact:true});
   await expect(height).toHaveValue('15');await expect(height).toHaveAttribute('min','10');await expect(height).toHaveAttribute('max','20');
   await expect(page.locator('#motion-z_stage')).toContainText('可调高度10–20 cm');
@@ -360,27 +363,27 @@ test('Lab heights: independent Z stage in cm, stage elevation, fixed beam and sn
   for(const cm of [10,20]){
     await height.fill(String(cm));await height.press('Tab');
     const current=(await state(page)).snapshot;expect(current.experiment_state.joints['z_stage.z']).toBe(cm*10);
-    expect(current.assembly).toEqual(initial.assembly);await expect(page.locator('#readout')).toContainText('样品中心：0, '+(1169.5+cm*10)+', 0');await checkViewer(page);
+    expect(current.assembly).toEqual(initial.assembly);await expect(page.locator('#readout')).toContainText('样品中心：0, '+(1059.5+cm*10)+', 0');await checkViewer(page);
   }
   const revision=(await state(page)).revision;await height.fill('21');await height.press('Tab');
   await expect(height).toHaveAttribute('aria-invalid','true');expect((await state(page)).revision).toBe(revision);
   await height.fill('15');await height.press('Tab');
   await openDevice(page,'rotary');const elevation=page.getByRole('spinbutton',{name:'大样品台 · φ · 台面升高 / cm',exact:true});
-  await elevation.fill('6.05');await elevation.press('Tab');
-  await expect(page.locator('#target-summary')).toContainText('相对光束高度 0 mm');await checkViewer(page);
+  await elevation.fill('6');await elevation.press('Tab');
+  await expect(page.locator('#target-summary')).toContainText('相对光束高度 -110.5 mm');await checkViewer(page);
   const raised=(await state(page)).snapshot,r=raised.assembly.frames.find((f:{id:string})=>f.id==='R');
-  expect(r.mount.position_mm[1]).toBeCloseTo(751.5,8);expect(r.motion.center_mm[1]).toBeCloseTo(751.5,8);
+  expect(r.mount.position_mm[1]).toBeCloseTo(760,8);expect(r.motion.center_mm[1]).toBeCloseTo(760,8);
   const column=raised.devices.devices.find((d:{id:string})=>d.id==='rotary').visual;
-  expect(column.size_mm[1]).toBeCloseTo(730.5,8);expect(r.mount.position_mm[1]+column.offset_mm[1]-column.size_mm[1]/2).toBeCloseTo(0,8);
+  expect(column.size_mm[1]).toBeCloseTo(730,8);expect(r.mount.position_mm[1]+column.offset_mm[1]-column.size_mm[1]/2).toBeCloseTo(0,8);
   expect(raised.assembly.beam).toEqual(initial.assembly.beam);expect(raised.assembly.frames.find((f:{id:string})=>f.id==='D')).toEqual(initial.assembly.frames.find((f:{id:string})=>f.id==='D'));
   const raisedRevision=(await state(page)).revision;await elevation.fill('11');await elevation.press('Tab');
   expect((await state(page)).revision).toBe(raisedRevision);await expect(elevation).toHaveAttribute('aria-invalid','true');
   await openInstallation(page,'rotary');const installY=page.getByRole('spinbutton',{name:'大样品台 · φ · 安装 Y / mm',exact:true});
-  await installY.fill('741');await installY.press('Tab');await expect(elevation).toHaveValue('5');
+  await installY.fill('750');await installY.press('Tab');await expect(elevation).toHaveValue('5');
   const viaInstall=(await state(page)).snapshot,installColumn=viaInstall.devices.devices.find((d:{id:string})=>d.id==='rotary').visual;
-  expect(installColumn.size_mm[1]).toBeCloseTo(720,8);expect(741+installColumn.offset_mm[1]-installColumn.size_mm[1]/2).toBeCloseTo(0,8);
+  expect(installColumn.size_mm[1]).toBeCloseTo(720,8);expect(750+installColumn.offset_mm[1]-installColumn.size_mm[1]/2).toBeCloseTo(0,8);
   await elevation.fill('10');await elevation.press('Tab');
-  await joint(page,'rotary.phi',37);await expect(page.locator('#readout')).toContainText('样品中心：0, 1419.5, 0');await checkViewer(page);
+  await joint(page,'rotary.phi',37);await expect(page.locator('#readout')).toContainText('样品中心：0, 1309.5, 0');await checkViewer(page);
   await applyConfig(page,initial);await openDevice(page,'z_stage');await expect(page.getByRole('spinbutton',{name:'z_stage.z / cm',exact:true})).toHaveValue('15');
   expect((await state(page)).snapshot).toEqual(initial);
   await page.locator('#camera-sample').click();await checkLabels(page);await page.screenshot({path:'artifacts/lab-height-sample.png',fullPage:true});

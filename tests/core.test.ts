@@ -17,14 +17,14 @@ const frame=(c:SceneConfig,id:string)=>c.assembly.frames.find(f=>f.id===id)!;
 describe('laboratory height configuration',()=>{
   it('keeps the ground, inclusive adapter span and beam reference independent of the selected Z height',()=>{
     const c=lab_height_config(),s=load_scene(c);
-    close(s.get_world_position('rotary').position,[0,691,0]);
-    close(s.get_world_position('hexapod').position,[0,1109,0]);
-    close(s.get_frame_transform('LAB','Z0').matrix.slice(3,12).filter((_,i)=>i%4===0),[0,1130,0]);
-    close(s.get_world_position('z_stage').position,[0,1280,0]);
-    close(s.get_sample_point('sample').position,[0,1319.5,0]);
+    close(s.get_world_position('rotary').position,[0,700,0]);
+    close(s.get_world_position('hexapod').position,[0,995.9,0]);
+    close(s.get_frame_transform('LAB','Z0').matrix.slice(3,12).filter((_,i)=>i%4===0),[0,1020,0]);
+    close(s.get_world_position('z_stage').position,[0,1170,0]);
+    close(s.get_sample_point('sample').position,[0,1209.5,0]);
     expect(c.assembly.beam.point_mm).toEqual([0,1380,0]);expect(c.devices.devices.find(d=>d.id==='hexapod')!.visual.adapter_thickness_mm).toBe(15);
     const before=s.save_state();s.set_joint_value('z_stage.z',200);
-    close(s.get_sample_point('sample').position,[0,1369.5,0]);close(s.get_world_position('hexapod').position,[0,1109,0]);
+    close(s.get_sample_point('sample').position,[0,1259.5,0]);close(s.get_world_position('hexapod').position,[0,995.9,0]);
     expect(s.save_state().assembly).toEqual(before.assembly);expect(s.get_world_position('detector').position).toEqual([0,1380,1000]);
     const after=s.save_state(),delta=compare_states(before,after);close(delta.device_delta.sample.translation_delta_lab_mm,[0,50,0]);
     expect(delta.joint_delta['z_stage.z'].delta).toBe(50);s.restore_state(before);expect(s.save_state()).toEqual(before);

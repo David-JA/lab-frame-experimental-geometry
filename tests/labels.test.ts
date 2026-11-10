@@ -181,14 +181,26 @@ describe('viewer display integration',()=>{
   afterEach(()=>{viewer?.dispose();viewer=undefined;vi.unstubAllGlobals();});
   it('places surveyed ground, adapters and independent Z plates at their actual height references',()=>{
     const geometry=load_scene(lab_height_config());viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(geometry);
-    const bounds=(id:string,part='body')=>{let mesh:Mesh|undefined;viewer!.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId===id&&o.userData.bodyPart===part)mesh=o;});expect(mesh).toBeDefined();return new Box3().setFromObject(mesh!);};
+    const part=(id:string,name='body')=>{let mesh:Mesh|undefined;viewer!.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId===id&&o.userData.bodyPart===name)mesh=o;});expect(mesh).toBeDefined();return mesh!;};
+    const bounds=(id:string,name='body')=>new Box3().setFromObject(part(id,name));
     expect(bounds('rotary').min.y).toBeCloseTo(0,8);expect(bounds('rotary').max.y).toBeCloseTo(670,8);
     expect(bounds('hexapod','lower-adapter').min.y).toBeCloseTo(670,8);expect(bounds('hexapod','lower-adapter').max.y).toBeCloseTo(685,8);
-    expect(bounds('hexapod','upper-adapter').min.y).toBeCloseTo(1115,8);expect(bounds('hexapod','upper-adapter').max.y).toBeCloseTo(1130,8);
-    expect(bounds('z_stage','lower-plate').min.y).toBeCloseTo(1130,8);expect(bounds('z_stage','upper-plate').max.y).toBeCloseTo(1280,8);
-    expect(bounds('theta').min.y).toBeCloseTo(1280,8);expect(bounds('theta').max.y).toBeCloseTo(bounds('xy').min.y,8);expect(bounds('xy').max.y).toBeCloseTo(bounds('sample').min.y,8);
+    expect(bounds('rotary').getSize(new Vector3()).toArray()).toEqual([450,670,450]);
+    expect(bounds('hexapod','lower-disc').min.y).toBeCloseTo(685,8);expect(bounds('hexapod','lower-disc').max.y).toBeCloseTo(715,8);
+    // Mesh vertices are Float32; the 18.2 mm drawing thickness is not exactly representable.
+    expect(bounds('hexapod','upper-disc').min.y).toBeCloseTo(986.8,6);expect(bounds('hexapod','upper-disc').max.y).toBeCloseTo(1005,6);
+    expect(bounds('hexapod','upper-disc').getSize(new Vector3()).x).toBeCloseTo(260,8);expect(bounds('hexapod','lower-disc').getSize(new Vector3()).x).toBeCloseTo(348,8);
+    expect(bounds('hexapod','upper-disc').max.y-bounds('hexapod','lower-disc').min.y).toBeCloseTo(320,6);
+    expect(bounds('hexapod','upper-adapter').min.y).toBeCloseTo(1005,8);expect(bounds('hexapod','upper-adapter').max.y).toBeCloseTo(1020,8);
+    expect(bounds('hexapod','upper-adapter').max.y-bounds('hexapod','lower-adapter').min.y).toBeCloseTo(350,8);
+    expect(bounds('z_stage','lower-plate').min.y).toBeCloseTo(1020,8);expect(bounds('z_stage','upper-plate').max.y).toBeCloseTo(1170,8);
+    expect(bounds('theta').min.y).toBeCloseTo(1170,8);expect(bounds('theta').max.y).toBeCloseTo(bounds('xy').min.y,8);expect(bounds('xy').max.y).toBeCloseTo(bounds('sample').min.y,8);
     geometry.set_joint_value('z_stage.z',200);viewer.update(geometry);
-    expect(bounds('z_stage','lower-plate').min.y).toBeCloseTo(1130,8);expect(bounds('z_stage','upper-plate').max.y).toBeCloseTo(1330,8);expect(bounds('theta').min.y).toBeCloseTo(1330,8);
+    expect(bounds('z_stage','lower-plate').min.y).toBeCloseTo(1020,8);expect(bounds('z_stage','upper-plate').max.y).toBeCloseTo(1220,8);expect(bounds('theta').min.y).toBeCloseTo(1220,8);
+    geometry.set_platform_pose('hexapod',{translation_mm:[2,3,4],rotation_deg:[0,0,90]});viewer.update(geometry);
+    const upper=new Vector3().setFromMatrixPosition(part('hexapod','upper-adapter').matrixWorld);
+    expect(upper.x).toBeCloseTo(369.5,8);expect(upper.y).toBeCloseTo(1383,8);expect(upper.z).toBeCloseTo(4,8);
+    expect(new Vector3().setFromMatrixPosition(part('hexapod','lower-adapter').matrixWorld).toArray()).toEqual([0,677.5,0]);
     expect(viewer.diagnostics().max_world_matrix_error).toBeLessThan(1e-8);
   });
   it('keeps compact metal discs, adapter plates and the column attached to their actual frames',()=>{

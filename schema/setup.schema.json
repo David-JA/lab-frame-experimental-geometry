@@ -139,6 +139,9 @@
         "adapter_thickness_mm": {
           "type": "number",
           "exclusiveMinimum": 0
+        },
+        "upper_disc_size_mm": {
+          "$ref": "#/$defs/visual/properties/size_mm"
         }
       },
       "required": [

@@ -4,7 +4,7 @@ Status: Active
 Issue: [Obsidian #38](https://github.com/David-JA/obsidian/issues/38)
 Created: 2026-11-09
 Decision owner: Maintainer
-Current phase: T8 已提交为 f214ef1；T9 高度配置与独立Z平台经Astra high / Terra xhigh终审PASS，已按用户授权随本次本地提交保存；旧handoff已删除，5173服务保留供网页评审；G0/G1用户接受仍Open，保持 Active
+Current phase: T10图纸尺寸及分层配色已按用户授权随本次本地提交保存；尺寸两轮双review与配色delta双review均PASS。准备T11 SSRF-BL12SW公开仓库与Pages发布；5173保留，G0/G1用户接受仍Open，保持Active
 
 ## Goal and scope
 
@@ -23,13 +23,13 @@ Current phase: T8 已提交为 f214ef1；T9 高度配置与独立Z平台经Astra
 - 接手审计与 Astra high 定向核查当时未发现已确认的功能 blocker；接手时主要缺口为最后选中边线的视觉证据、真实浏览器拾取/拖动闭环及文档同步，现已由 T6c/T6d 补齐。历史 81 项测试和 7 条 E2E 不直接作为最后边线修改后的复验结果。
 - #38 已明确 `LAB→R→H0→H1→P0→P1(θ)→P2(XY)→S→C`；θ 在下、XY 在上由用户最终确认，不再作为待选方案。
 - #38 要求 `+Y_lab` 向上、`+Z_lab` 入射、右手系、列向量变换；hexapod 变换须包含零位安装 `T0`。C 是正交笛卡尔 frame，直接晶格基矢 A 不必正交。
-- 实测设备尺寸、安装 pose、控制器 UVW 映射、行程及晶体取向文件尚未提供。本 Spec 可以形成合成场景的正确性闭合，不宣称真实装置校准或运动可执行性。
+- 设计时实物参数尚未提供；T9收到卷尺安装高度，T10收到六轴尺寸图及总高更正，来源与当前尺寸见[高度记录](./20261110_lab_height_survey.md)。完整安装pose、控制器UVW映射、认证行程及晶体取向文件仍缺，本Spec不宣称真实装置校准或运动可执行性。
 - PWA 的 [Spec workflow](../../pwa1483_1d_scan_stress/docs/workflows/discuss_spec_workflow.md) 与 [Basic 模板](../../pwa1483_1d_scan_stress/docs/workflows/spec_template_basic.md) 作为结构参考，读取时本地版本为 `350f3cd5661a90fb0a00c7f50286a7b856892e99`。选择 Basic 单文件：需求与有序开发属于一个有界交付，无已确定的长期、多 PR 或高频执行记录，不满足 Split 的同时条件。
 - 不将 PWA 的材料 baseline、数据目录、双语全套文档或 PR/merge 流程复制到新仓库；这里只采用“先稳定合同、再列方案/任务/验证”的组织方式。PWA 生成器固定其仓库根，因此按模板在本仓撰写，不调用它向 PWA 写文件。
 
 ## Required deliverables
 
-**当前收尾交付：** T9高度配置与Z平台实现、测试及本Spec/README已通过双review并按授权本地提交；旧handoff删除，评审网页服务保留。审阅版本、scope、verdict 及 findings 留在任务聊天；本文只回填任务状态、结论和实际覆盖，不维护逐轮日志。
+**当前收尾交付：** T10依据图纸更新默认六轴包络、总高及450 mm方柱，同步高度预算、验证与双review。T9已提交，旧handoff已删除，评审网页服务保留。审阅版本、scope、verdict及findings留在任务聊天；本文只回填任务状态、结论和实际覆盖，不维护逐轮日志。
 
 **后续 G0/G1 实施：**
 
@@ -270,12 +270,22 @@ T8 用户参考图视觉优化（上一基线 `dcf1942`；完成审阅后用户�
 - [x] **T8b 基座与紧凑装配**：`#F8E68A` 方柱高度为外观尺寸，柱顶固定，不新增运动关节；snapshot 保存尺寸与 offset。H1 Y=142.5、P0 Y=57.5 mm，合计 200，sample/pivot/beam/detector 理想关系不变；零位各接触面已用实际 mesh bounds 验证，不宣称照片量测。
 - [x] **T8c 验证与视觉检查**：87 tests、typecheck/build、8 E2E 通过；复合件继承/接触、柱体高度保存与已知位姿不变均覆盖。主 Agent 与 Astra high 对照两张参考图，查看装置/全景/样品/窄屏/高度250图，Astra PASS 无 blocker；用户随后授权全部已审 T8 修改一起本地提交，现已保存。
 
-T9 卷尺粗测高度配置：来源与澄清见 [高度记录](./20261110_lab_height_survey.md)，粗测不等于标定。已确认地面→大样品台顶面/六轴下板底面约670 mm，六轴含上下各15 mm转接板总高约460 mm，光斑离地约1380 mm，故上板顶面约1130 mm、到光斑余量约250 mm。大样品台可升约100 mm；440 mm刚性架当前不使用，未来170 mm矮支撑件只记录、不实施（用户已更正此前17 mm笔误）。黑架已确认为独立Z平台，安装于六轴上板与XYθ之间，页面10–20 cm，初始15 cm，内部mm；按用户要求不显示“当前高度未测”。保留其余示意尺寸，初始目标点1319.5 mm，不自动凑成光斑高度。
+T9历史配置（六轴高度已由T10更正）：来源与澄清见 [高度记录](./20261110_lab_height_survey.md)，粗测不等于标定。当时采用台面/六轴下板底面约670 mm，六轴含板总高约460 mm、上板顶面1130 mm、到1380 mm光斑余量250 mm。大样品台可升约100 mm；440 mm刚性架当前不使用，未来170 mm矮支撑件只记录、不实施。独立Z平台安装于六轴上板与XYθ之间，页面10–20 cm、初始15 cm、内部mm。其余示意尺寸保留，当时目标点1319.5 mm；当前默认数值以T10为准。
 
 - [x] **T9a 提交与测量整理**：T8 已审改动提交 `f214ef1`；记录原值、单位、端点和待确认项，区分粗测/假设。
 - [x] **T9b 高度配置与验证**：默认加载lab_height_config；新增独立prismatic Z平台与上下端可辨几何；台面升高与安装Y共用保持柱底的更新，光束/探测器固定；旧合成配置保留。高度预算、倾转后Z方向、cm/mm、边界原子拒绝与snapshot恢复均已核对。
 
-T9验证与review：91 tests（61核心＋30展示）、最终typecheck/build通过，主JS774.26 kB/gzip204.60 kB，原体积提示保留。统一安装Y修复后9 E2E通过（33.0 s）；随后仅将范围文案改为按配置生成，专项E2E通过（6.4 s）并刷新ignored `artifacts/lab-height-{apparatus,sample,overview,mobile}.png`。首轮Astra指出安装Y不联动柱体、Terra建议动态范围文案，均已处理；第二轮Astra high与Terra xhigh对当前delta及四张最终截图均PASS，无blocker。测量来源与机械设计意图不升格为标定，未来170 mm支撑架未加入。用户随后授权本轮全部已审修改一起本地提交，现已保存；旧handoff按要求删除并移除当前入口链接，历史保留在Git。用户网页评审和G0/G1正式接受仍独立；原5173服务保留，不推送、不创建PR。
+T9验证与review：91 tests（61核心＋30展示）、最终typecheck/build通过，主JS774.26 kB/gzip204.60 kB，原体积提示保留。统一安装Y修复后9 E2E通过（33.0 s）；随后仅将范围文案改为按配置生成，专项E2E通过（6.4 s）并刷新ignored `artifacts/lab-height-{apparatus,sample,overview,mobile}.png`。首轮Astra指出安装Y不联动柱体、Terra建议动态范围文案，均已处理；第二轮Astra high与Terra xhigh均PASS，无blocker。未来170 mm支撑架未加入。用户随后授权本轮全部已审修改本地提交为06a6494；旧handoff按要求删除，历史保留在Git。用户网页评审和G0/G1正式接受仍独立；原5173服务保留，不推送、不创建PR。
+
+T10 图纸更正：用户指出此前460 mm为读数错误。本体320 mm已经包含上盘18.2、下盘30 mm；上盘Ø260、下盘最大外径Ø348，外加上下各15 mm板后总高350 mm。默认大样品台改为450×450 mm截面，地面/台面670与可升100 mm不变。下盘以圆盘包络示意，不复刻非圆细节、孔系或机构。图纸原图集中保存在高度记录的assets下，供直接核对，不复制第二份尺寸台账。
+
+- [x] **T10a 参考面与来源**：保留图纸及更正沿革，厂图原点/内部H1/pivot分别说明，不擅改控制坐标或UVW。
+- [x] **T10b 外观与装配**：新增可选upper_disc_size_mm独立上盘尺寸，旧配置省略保持原比例；上下板分别按上/下盘厚度计算偏移。H0=700、H1=995.9、Z0=1020、Z15cm顶1170、目标1209.5 mm；光束固定1380，不自动补齐170.5 mm差值。450 mm方柱仍支持原升降。
+- [x] **T10c 验证与双review**：mesh包络320/350、上下盘直径/厚度、方柱截面、非零倾转继承、cm/mm与保存恢复已验证；Astra high / Terra xhigh先内容、再最终视觉与文字两轮均PASS，无blocker，未自动提交。
+
+T10验证：91 tests（61核心＋30展示）、typecheck/build PASS；9 E2E PASS（34.5 s），当前截图刷新为ignored `artifacts/lab-height-{apparatus,sample,overview,mobile}.png`，两位reviewer逐一查看。18.2 mm的Float32网格顶点误差约3.8×10⁻⁷ mm，仅相关mesh厚度断言用5×10⁻⁷ mm容差，核心数值容差不变。构建主JS775.00 kB/gzip204.90 kB，原Vite体积提示保留。图纸原始输入单份保存用于尺寸来源核对；下盘非圆细节、孔系与真实支杆解算未实施。旧合成示例/快照兼容通过，原5173评审服务保留；T10尺寸与配色现已按用户授权一并本地提交，G0/G1用户接受仍待单独决定。
+
+T10后续分层配色：用户最终明确六轴主体亮银、上下转接板灰色。默认圆盘与支杆使用#DDE3E8，方形转接板为中灰#77818B；降低金属度以避免日间光照下变暗。XYθ改为同族青绿（θ底座#3E817B、XY滑台#87B9AC），Z平台炭黑、方柱浅黄、样品棕色。支杆颜色跟随所属六轴配置；树色块、装置说明与README同步。尺寸/位姿/高度预算沿用已审版本。主Agent已在5173核查装置近景、样品近景、窄屏及选中六轴截图 `artifacts/layer-palette-*.png`，相机/选择操作前后完整物理snapshot一致，窄屏无横向溢出；build/typecheck及diff检查通过（主JS775.16 kB/gzip204.96 kB）。Astra high、Terra xhigh单独进行配色delta视觉/说明review，均PASS，无blocker；两者提出的README“原配色”措辞已由主Agent改为“保留原主体visual.color，转接板/金属材质采用当前规则”。本次未重复运行91单测/9E2E，复用上方仍有效的几何证据；尺寸及配色现已按用户授权一并本地提交，原5173服务保留。
 
 T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染依赖相应核心结果。只在实物参数到位时增加“实物配置核对”这一独立验证，不阻塞合成场景实现，也不把它冒充已完成。
 

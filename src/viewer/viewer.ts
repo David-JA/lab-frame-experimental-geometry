@@ -128,7 +128,7 @@ export class GeometryViewer {
   #body(d:Device){
     const [x,y,z]=d.visual.size_mm;
     const metal=d.type==='hexapod'||d.type==='theta'||d.type==='xy';
-    const material=new THREE.MeshStandardMaterial({color:d.visual.color,metalness:metal?.4:d.type==='rotary'?.02:.12,roughness:metal?.28:.7});
+    const material=new THREE.MeshStandardMaterial({color:d.visual.color,metalness:d.type==='hexapod'?.25:metal?.4:d.type==='rotary'?.02:.12,roughness:metal?.28:.7});
     const register=(frame:string,geometry:THREE.BufferGeometry,mat:THREE.MeshStandardMaterial,position:Vec3,part:string)=>{
       const mesh=new THREE.Mesh(geometry,mat);mesh.position.copy(vector(position));
       const edges=new THREE.LineBasicMaterial({color:0x4b545b,transparent:true,opacity:.24});
@@ -137,13 +137,14 @@ export class GeometryViewer {
     };
     if(d.type==='hexapod'&&d.visual.shape==='cylinder'){
       const f=this.#config!.assembly.frames.find(f=>f.id===d.output_frame)!,offset=d.visual.offset_mm??[0,0,0];
-      const disc=(scale:number)=>new THREE.CylinderGeometry(.5,.5,1,64).scale(x*scale,y,z*scale);
-      const black=new THREE.MeshStandardMaterial({color:0x20252b,metalness:.3,roughness:.62});
-      register(d.output_frame,disc(.75),material,offset,'upper-disc');
-      register(f.parent,disc(1),material.clone(),[0,0,0],'lower-disc');
-      const thickness=d.visual.adapter_thickness_mm??y,adapterOffset=(y+thickness)/2;
-      register(d.output_frame,new THREE.BoxGeometry(x*.85,thickness,z*.85),black,[offset[0],offset[1]+adapterOffset,offset[2]],'upper-adapter');
-      register(f.parent,new THREE.BoxGeometry(x*1.08,thickness,z*1.08),black.clone(),[0,-adapterOffset,0],'lower-adapter');
+      const [ux,uy,uz]=d.visual.upper_disc_size_mm??[x*.75,y,z*.75];
+      const disc=(dx:number,dy:number,dz:number)=>new THREE.CylinderGeometry(.5,.5,1,64).scale(dx,dy,dz);
+      const adapterMaterial=new THREE.MeshStandardMaterial({color:0x77818b,metalness:.3,roughness:.45});
+      register(d.output_frame,disc(ux,uy,uz),material,offset,'upper-disc');
+      register(f.parent,disc(x,y,z),material.clone(),[0,0,0],'lower-disc');
+      const thickness=d.visual.adapter_thickness_mm??y;
+      register(d.output_frame,new THREE.BoxGeometry(x*.85,thickness,z*.85),adapterMaterial,[offset[0],offset[1]+(uy+thickness)/2,offset[2]],'upper-adapter');
+      register(f.parent,new THREE.BoxGeometry(x*1.08,thickness,z*1.08),adapterMaterial.clone(),[0,-(y+thickness)/2,0],'lower-adapter');
       return;
     }
     if(d.type==='z_stage'){
@@ -191,7 +192,7 @@ export class GeometryViewer {
   }
   #line(a:Vec3,b:Vec3,color:number,radius=1.5,metallic=false){
     const delta=vector(b).sub(vector(a)),length=delta.length();
-    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,1,16),metallic?new THREE.MeshStandardMaterial({color,metalness:.72,roughness:.3}):new THREE.MeshBasicMaterial({color}));
+    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,1,16),metallic?new THREE.MeshStandardMaterial({color,metalness:.3,roughness:.3}):new THREE.MeshBasicMaterial({color}));
     mesh.position.copy(vector(a).add(vector(b)).multiplyScalar(.5));mesh.scale.y=length;
     if(length>1e-12)mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
     this.#dynamic.add(mesh);return mesh;
@@ -243,7 +244,10 @@ export class GeometryViewer {
     this.#rodError=0;this.#crystalOriginError=0;
     for(const s of c.assembly.supports){
       const a=point(geometry.get_frame_transform('LAB',s.base_frame).matrix,s.base_point_mm),b=point(geometry.get_frame_transform('LAB',s.moving_frame).matrix,s.moving_point_mm);
-      const rod=this.#line(a,b,0xb9c3cc,4.5,true);rod.updateMatrixWorld(true);
+      const owner=c.devices.devices.find(d=>d.type==='hexapod'&&d.output_frame===s.moving_frame);
+      const radius=owner?.visual.upper_disc_size_mm?owner.visual.size_mm[1]/2:4.5;
+      const color=owner?new THREE.Color(owner.visual.color).getHex():0xb9c3cc;
+      const rod=this.#line(a,b,color,radius,true);rod.updateMatrixWorld(true);
       this.#rodError=Math.max(this.#rodError,new THREE.Vector3(0,-.5,0).applyMatrix4(rod.matrixWorld).distanceTo(vector(a)),new THREE.Vector3(0,.5,0).applyMatrix4(rod.matrixWorld).distanceTo(vector(b)));
     }
     let primaryTargetTip:THREE.Vector3|undefined;

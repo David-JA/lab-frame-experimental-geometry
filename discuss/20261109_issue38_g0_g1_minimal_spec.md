@@ -4,7 +4,7 @@ Status: Active
 Issue: [Obsidian #38](https://github.com/David-JA/obsidian/issues/38)
 Created: 2026-11-09
 Decision owner: Maintainer
-Current phase: T10已提交59e01ec；T11经Astra high PASS后已公开仓库并上线Pages，线上交互及Issue双链已核查，状态随本次提交同步；5173保留，等待公开反馈与G0/G1用户接受，保持Active
+Current phase: T12诊断/粗箭头/中文设置已完成，Astra high与Terra high两轮review PASS；本轮已获个人账户提交/推送及Pages更新授权，进入发布核查；5173保留，G0/G1接受仍Open，保持Active
 
 ## Goal and scope
 
@@ -29,7 +29,7 @@ Current phase: T10已提交59e01ec；T11经Astra high PASS后已公开仓库并�
 
 ## Required deliverables
 
-**当前收尾交付：** T10尺寸及配色提交59e01ec，T11发布准备提交72c7121；个人公开仓库、SSRF-BL12SW名称、MIT/参考资料许可边界、反馈入口和Pages均已落地并核查。新仓库反馈#1与Obsidian#38双向链接，#38需求正文和未勾选验收保留。旧handoff不恢复，5173评审服务保留。
+**当前收尾交付：** T12坐标诊断分层、实体粗箭头、任务优先中文设置与两组独立应用已实现，Astra high/Terra high复审通过；用户现已授权将本轮修改提交、以David-JA推送并更新Pages。实施/验证证据沿用下方有效结果；发布后另核对远端HEAD、部署结论及线上交互。旧handoff不恢复，5173服务保留。
 
 **后续 G0/G1 实施：**
 
@@ -301,6 +301,18 @@ T11验收：本地unit/build及仓库子路径产物预览（非根路径JS/CSS�
 T11发布准备结果：91 tests与子路径build/typecheck通过，工作流/Issue表单YAML解析通过。临时4174预览访问仓库子路径，JS/CSS实际返回正常；标题/反馈链接正确，XY.x=1触发状态和1 mm读数，WebGL世界矩阵/探测器误差0、杆端误差1.42×10⁻¹⁴ mm；390 px无横向溢出，无pageerror/失败资源。截图为ignored `artifacts/pages-subpath-{desktop,mobile}.png`，主Agent与Astra直接查看；Astra本轮发布准备PASS、无blocker。公开历史文件范围与凭据特征检查未发现敏感凭据或运行产物；本地5173保留。此记录只说明准备就绪，实际仓库/部署/关联状态由T11c/d的回填持有。
 
 T11发布结果：公开仓库[David-JA/lab-frame-experimental-geometry](https://github.com/David-JA/lab-frame-experimental-geometry)，[Pages线上入口](https://david-ja.github.io/lab-frame-experimental-geometry/)。首次部署72c7121f0a13f6ee5d31bf36d3fdff186a984a85的[Actions运行42815683196](https://github.com/David-JA/lab-frame-experimental-geometry/actions/runs/42815683196)中build/deploy均success；仓库homepage指向Pages、HTTPS启用。线上实测资源无失败、WebGL与XY参数更新正常、390 px无溢出，世界矩阵/探测器误差0，杆端误差1.42×10⁻¹⁴ mm；当前截图为ignored `artifacts/pages-live-{desktop,mobile}.png`。反馈#1由David-JA创建，#38仅状态段更新，保持Open及原验收。临时4174已停止，原5173/PID52776保持HTTP200；本次状态回填将另行提交/推送，最终远端HEAD与部署结果在任务交付前读回确认，不再修改产品功能。
+
+T12 可读的诊断与设置（用户截图反馈）：主Agent与Astra high、Terra high梳理近景层级、颜色/箭头和中文表达。实现期间仅本地修改；用户随后单独授权本轮提交、个人账户推送及Pages更新。不改动已有数学、晶胞/旋转约定或snapshot格式。
+
+- [x] **T12a 分层观察与箭头**：诊断分为晶体坐标/晶格方向/装置坐标/全部对照，默认晶体坐标。纯观察预设与原display保存开关相交，不改revision/snapshot；保存图层被关闭时给出明确提示和设置入口。晶体/晶格预设同时隐藏无关pivot/beam标签及旋转轴，装置预设看当前装置与LAB，全部对照保留工程核对。XYZ使用高对比红绿蓝，实心圆柱箭杆/粗虚线段取代1px线，目标方向更粗；保留实线坐标与虚线晶格的语义，不把任意箭长作为晶格长度。
+- [x] **T12b 中文与任务顺序**：样品先选“观察哪个方向”，按晶向或晶面法向分别标u/v/w或h/k/l；切换只是重新解释指标，不做晶向/晶面换算。四元数移到默认折叠的高级取向区，方向与取向分别原子应用、互不读取另一组草稿，样品机械位置不变。隐藏固定样品的空运动区；配置文件可直接保存/载入，JSON编辑进入高级折叠区，保留原编辑/比较路径。
+- [x] **T12c 验证与协作review**：四预设、非立方方向、独立草稿与非法输入、文件来源分离均通过验证。Astra high与Terra high两轮内容/视觉review PASS，首轮P2已闭环；主Agent直接看近景、样品设置、配置抽屉和窄屏。未自动提交/推送。
+
+T12结果：92 tests（61核心＋31展示）、最终typecheck/build通过，主JS778.94 kB/gzip206.26 kB，Vite体积提示保留。10条E2E场景已全部取得有效通过证据：完整运行9条PASS，剩余配置旧中文断言适配后专项PASS；文件来源修复后配置/T12两专项再次PASS（12.1 s），未为未受影响的其余8条重复执行。新增流程覆盖直接载入、文件A与编辑器B隔离、无效JSON/零指标/非法四元数原子拒绝、方向/取向互不读草稿、四预设不改snapshot、关闭图层提示、非立方C轴与晶向区别及390 px布局。最终图在ignored `artifacts/readable-{crystal-closeup,lattice-closeup,sample-controls,mobile,file-settings}.png`。
+
+首轮Astra/Terra均指出普通载入误读高级editor的P2；现用独立pendingFileText，选新文件先清空/禁用，读完只接受仍为当前选择的结果；高级JSON保持独立应用。指标不称C正交分量，四元数作为旋转R_SC的表示；相关文字建议已改。第二轮两位均PASS，无blocker。此轮core/Schema/示例物理配置及依赖未改；仅本地工作区修改，线上仍由T11已发布版本持有，用户可在5173先评审。
+
+- [ ] **T12d 授权发布**：用户已批准本轮全部已审修改提交、David-JA个人账户推送及Pages更新；发布后核对main/HEAD、Actions部署、线上诊断预设与参数区，再回填结果。结束恢复原gh活跃账户，原5173服务保留。README拆分到docs/project_memory.md目前仅讨论组织判断，不纳入本轮文档迁移。
 
 T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染依赖相应核心结果。只在实物参数到位时增加“实物配置核对”这一独立验证，不阻塞合成场景实现，也不把它冒充已完成。
 

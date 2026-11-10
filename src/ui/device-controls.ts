@@ -90,12 +90,12 @@ export class DeviceControls {
       const notes=document.createElement('dl');description.append(notes);
       const describe=(title:string,content:string)=>{text('dt',title,notes);text('dd',content,notes);};
       if(!f){
-        const placement=detail('placement-'+d.id,'安装与几何 · 绑定参考 '+d.output_frame,body,false,'parameter-block');
-        text('p','直接绑定 '+d.output_frame+'，没有独立安装 mount；此处为只读参考。',placement,'small');
+        const placement=detail('placement-'+d.id,'安装位置与外形 · 绑定参考 '+d.output_frame,body,false,'parameter-block');
+        text('p','直接使用 '+d.output_frame+' 坐标系，安装位置只读。',placement,'small');
         const info=text('p','',placement,'position-info');
         this.#refresh.push(()=>info.textContent='绑定原点 · LAB ('+xyz(scene.get_world_position(d.id).position)+') mm');
-        const motion=detail('motion-'+d.id,'自身自由度 · 无独立关节',body,true,'parameter-block');
-        text('p','位姿由绑定的 '+d.output_frame+' 坐标系提供。',motion,'small');body.prepend(motion);
+        const motion=detail('motion-'+d.id,'运动调整 · 随上级装置移动',body,true,'parameter-block');
+        text('p','位姿由绑定的 '+d.output_frame+' 坐标系提供。',motion,'small');motion.hidden=true;body.prepend(motion);
         describe('安装关系','直接使用 '+d.output_frame+' 坐标系，没有独立安装位置或机械关节。位置随该坐标系的来源装置变化；LAB 本身固定。');body.append(description);
         continue;
       }
@@ -111,7 +111,7 @@ export class DeviceControls {
         scene.restore_state(next);
       };
       const reference=(frame:Frame):Vec3=>frame.motion.kind==='revolute'?frame.motion.center_mm:frame.motion.kind==='six_dof'?frame.motion.pivot_mm:frame.mount.position_mm;
-      const placement=detail('placement-'+d.id,'安装与几何 · '+anchor.parent+' / mm',body,false,'parameter-block');
+      const placement=detail('placement-'+d.id,'安装位置与外形 · '+anchor.parent+' / mm',body,false,'parameter-block');
       text('p',anchor.motion.kind==='revolute'?'旋转轴参考点；随底座一起移动。':anchor.motion.kind==='six_dof'?'零位 pivot 安装参考点，不含本级平移。':anchor.motion.kind==='xy_translation'?'零位安装参考点 '+anchor.id+'，不含本级 XY 行程。':'安装基座 '+anchor.id+' 的原点，坐标相对 '+anchor.parent+'。',placement,'small');
       const positionInfo=text('p','',placement,'position-info');
       this.#refresh.push(()=>{const a=readFrame();positionInfo.textContent='安装参考点 · LAB ('+xyz(point(scene.get_frame_transform('LAB',a.parent).matrix,reference(a)))+') mm';});
@@ -125,7 +125,7 @@ export class DeviceControls {
       });
       if(d.type==='rotary'&&d.visual.shape==='box'){
         const appearance=detail('appearance-'+d.id,'柱体外观 · mm',placement,true,'sub-block');
-        text('p','高度只改变柱体外观，柱顶安装面保持不变。整体升降请使用'+(d.elevation?'自身自由度中的台面升高':'上方安装 Y')+'；不新增运动轴。',appearance,'small');
+        text('p','高度只改变柱体外观，柱顶安装面保持不变。整体升降请使用'+(d.elevation?'运动调整中的台面升高':'上方安装 Y')+'；不新增运动轴。',appearance,'small');
         number('高度 / mm',deviceName(d)+' · 柱体高度 / mm',()=>scene.save_state().devices.devices.find(x=>x.id===d.id)!.visual.size_mm[1],appearance,value=>{
           const next=scene.save_state(),visual=next.devices.devices.find(x=>x.id===d.id)!.visual;
           const offset=visual.offset_mm??[0,0,0],top=offset[1]+visual.size_mm[1]/2;
@@ -137,7 +137,7 @@ export class DeviceControls {
         const baseInfo=text('p','',placement,'position-info');baseInfo.dataset.integratedBase=d.id;
         this.#refresh.push(()=>{const axis=scene.get_axis(d.id);baseInfo.textContent='XY 固定基座 · θ 中心 · LAB ('+xyz(point(scene.get_frame_transform('LAB',axis.frame).matrix,axis.point_mm))+') mm';});
       }
-      const motion=detail('motion-'+d.id,members.length>1?'一体台运动 · θ / X / Y':'自身自由度'+(f.motion.kind==='fixed'?' · 固定安装':''),body,true,'parameter-block');
+      const motion=detail('motion-'+d.id,members.length>1?'一体台运动 · θ / X / Y':'运动调整'+(f.motion.kind==='fixed'?' · 随上级装置移动':''),body,true,'parameter-block');
       if(d.elevation){
         const e=d.elevation;
         const baseTop=e.base_mount_y_mm+(d.visual.offset_mm?.[1]??0)+d.visual.size_mm[1]/2;
@@ -149,7 +149,7 @@ export class DeviceControls {
         const group=members.length>1?detail('part-'+member.id,member.type==='theta'?'θ 旋转':'XY 平移 · 内部行程',motion,true,'sub-block'):motion;
         group.dataset.devicePart=member.id;
         const joints=mf.motion.kind==='six_dof'?mf.motion.joints:'joint' in mf.motion?[mf.motion.joint]:mf.motion.kind==='xy_translation'?mf.motion.joints:[];
-        if(!joints.length)text('p','无独立机械关节；跟随父级参考系。',group,'small');
+        if(!joints.length)text('p','没有可调运动，随上级坐标系移动。',group,'small');
         for(const id of joints){
           const j=c.assembly.joints.find(j=>j.id===id)!;
           const centimeters=member.type==='z_stage',scale=centimeters?10:1,unit=centimeters?'cm':j.unit;
@@ -169,26 +169,38 @@ export class DeviceControls {
           const next=scene.save_state(),m=next.assembly.frames.find(x=>x.id===f.id)!.motion;if(m.kind==='six_dof')m.pivot_mm[i]=value;scene.restore_state(next);
         });
       }
+      let crystal:HTMLDetailsElement|undefined;
       if(d.crystal){
-        const crystal=detail('crystal-'+d.id,'晶体取向与目标 · R_SC',motion,true,'sub-block');
-        text('p','R_SC 使用单位四元数 xyzw，表示 '+d.crystal.frame+' 相对 '+d.output_frame+' 的取向。修改后点击“应用晶体参数”；两者原点保持重合，样品机械位姿不变。',crystal,'small');
-        text('p','direct 输入晶向 [uvw]，reciprocal 输入晶面法向 (hkl)；指标不能全为零。',crystal,'small');
-        const s=c.experiment_state.samples[d.id],inputs:HTMLInputElement[]=[];
-        const labels=['q_x','q_y','q_z','q_w','index_u/h','index_v/k','index_w/l'];
-        [...s.orientation_quaternion_xyzw,...s.target_indices].forEach((v,i)=>{
-          inputs.push(number(labels[i],labels[i],()=>v,crystal,()=>{},undefined,true));
-        });
+        crystal=detail('crystal-'+d.id,'观察哪个方向',body,true,'sub-block');
+        text('p','选择要观察的类型，并填写三个指标。指标用于指定晶向或晶面，三个数不能同时为零。',crystal,'small');
+        const s=c.experiment_state.samples[d.id];
         const select=document.createElement('select');select.id='direction-type';select.setAttribute('aria-label','方向类型');
-        for(const [value,label]of [['direct','直接晶向 [uvw]'],['reciprocal','晶面法向 (hkl)']])select.add(new Option(label,value));
+        for(const [value,label]of [['direct','晶向 [uvw]'],['reciprocal','晶面法向 (hkl)']])select.add(new Option(label,value));
         select.value=s.direction_type;crystal.append(select);
-        const apply=document.createElement('button');apply.id='apply-crystal';apply.textContent='应用晶体参数';apply.className='primary';
-        apply.onclick=()=>this.edit(()=>{
-          const next=scene.save_state(),v=inputs.map(input=>input.valueAsNumber);
-          next.experiment_state.samples[d.id]={orientation_quaternion_xyzw:v.slice(0,4) as [number,number,number,number],target_indices:v.slice(4,7) as Vec3,direction_type:select.value as DirectionType};
+        text('p','切换类型会按新含义解释这三个数，不是晶向与晶面之间的换算。',crystal,'small');
+        const indexInputs=s.target_indices.map((v,i)=>number(['u','v','w'][i],['index_u/h','index_v/k','index_w/l'][i],()=>v,crystal!,()=>{},undefined,true));
+        const updateIndexLabels=()=>indexInputs.forEach((input,i)=>{const label=(select.value==='direct'?['u','v','w']:['h','k','l'])[i];input.parentElement!.querySelector('.parameter-name')!.textContent=label;input.setAttribute('aria-label','观察方向指标 '+label);});
+        select.addEventListener('change',updateIndexLabels);updateIndexLabels();
+        const applyDirection=document.createElement('button');applyDirection.id='apply-direction';applyDirection.textContent='应用观察方向';applyDirection.className='primary';
+        applyDirection.onclick=()=>this.edit(()=>{
+          const next=scene.save_state(),sample=next.experiment_state.samples[d.id];
+          sample.target_indices=indexInputs.map(input=>input.valueAsNumber) as Vec3;
+          sample.direction_type=select.value as DirectionType;
           scene.restore_state(next);
-        });crystal.append(apply);
+        });crystal.append(applyDirection);
+        const orientation=detail('orientation-'+d.id,'高级：晶体取向',crystal,false,'sub-block');
+        text('p','改变晶体朝向，不移动样品。四个分量不是四个角度，顺序为 x/y/z/w，平方和需等于 1。这里用单位四元数表示晶体相对样品的取向，对应旋转 R_SC；'+d.crystal.frame+' 与 '+d.output_frame+' 的原点保持重合。',orientation,'small');
+        const quaternionInputs=s.orientation_quaternion_xyzw.map((v,i)=>number(['X 分量','Y 分量','Z 分量','W 分量'][i],['q_x','q_y','q_z','q_w'][i],()=>v,orientation,()=>{},undefined,true));
+        const apply=document.createElement('button');apply.id='apply-crystal';apply.textContent='应用晶体取向';apply.className='primary';
+        apply.onclick=()=>this.edit(()=>{
+          const next=scene.save_state();
+          next.experiment_state.samples[d.id].orientation_quaternion_xyzw=quaternionInputs.map(input=>input.valueAsNumber) as [number,number,number,number];
+          scene.restore_state(next);
+        });orientation.append(apply);
       }
+      if(f.motion.kind==='fixed'&&!d.elevation)motion.hidden=true;
       body.prepend(motion);
+      if(crystal)body.prepend(crystal);
       const convention=f.motion.kind==='six_dof'?'XYZ 是 '+f.parent+' 中的平移（mm）；UVW 分别绕该坐标系的固定 X、Y、Z 轴转动（deg），按 U→V→W 的演示约定组合。':
         members.length>1?'θ 绕 '+f.parent+' 中配置的轴旋转，带动 XY 滑台及样品；X/Y 是一体台内部平移行程。旋转正方向遵循右手定则。':
         f.motion.kind==='revolute'?'绕 '+f.parent+' 中配置的轴旋转，正方向遵循右手定则；下游装配随之转动。':

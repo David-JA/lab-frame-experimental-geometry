@@ -44,13 +44,14 @@ label.check{display:block;margin:12px 0;font-size:13px}.check input{margin-right
 .camera-actions{display:flex;gap:5px;flex-shrink:0}.toolbar button{font-size:13px;min-height:32px}
 .selected-caption{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .diagnostic-toggle{font-size:12px;color:var(--muted);margin-left:auto;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.diagnostic-guide{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:7px 14px;background:#fff;border-bottom:1px solid var(--line);flex-shrink:0;font-size:12px;color:#46535e}.diagnostic-guide label{white-space:nowrap}.diagnostic-guide select{font-size:12px;min-height:32px;padding:4px 7px}.diagnostic-guide>span{flex:1;min-width:190px;line-height:1.6}.diagnostic-guide button{font-size:12px;min-height:30px}
 #axis-legend{white-space:nowrap}.phi-key{color:#9a6500}.theta-key{color:#7251b3}.beam-key{color:#087e9a}
 #viewport{min-height:0;position:relative;flex:1;overflow:hidden}
 canvas{display:block;width:100%;height:100%}
 #viewport canvas{position:absolute;inset:0}
 .scene-label-layer,.scene-label-leaders{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
 .scene-label-layer{z-index:2}
-.scene-label-leaders line{stroke-width:1;opacity:.65}
+.scene-label-leaders line{stroke-width:1.5;opacity:.85}
 .scene-label{position:absolute;left:0;top:0;width:max-content;max-width:min(210px,calc(100% - 16px));padding:2px 4px;background:transparent;color:#303b43;border:0;border-radius:3px;font:12px/1.5 "Microsoft YaHei","Noto Sans CJK SC",sans-serif;overflow-wrap:anywhere;text-shadow:0 1px 2px #fff,1px 0 2px #fff,-1px 0 2px #fff}
 .scene-label[data-emphasis=selected]{background:#ffffffda;border-left:2px solid var(--label-color);padding:4px 7px;text-shadow:none}
 .scene-label[data-emphasis=coincident]{background:#ffffffd9;padding:3px 6px;text-shadow:none}
@@ -60,6 +61,7 @@ canvas{display:block;width:100%;height:100%}
 .scene-label-entry::before{content:"";width:6px;height:6px;flex-shrink:0;background:var(--label-color);border-radius:50%}
 .scene-label-entry[data-role=frame]::before{display:none}
 .scene-label-entry[data-role=lattice]::before{background:transparent;border:1px dashed var(--label-color);border-radius:0}
+.scene-label:has(.scene-label-entry[data-role=crystal]),.scene-label:has(.scene-label-entry[data-role=lattice]),.scene-label:has(.scene-label-entry[data-role=target]){background:#fffffff0;text-shadow:none;font-weight:600;border-left:3px solid var(--label-color)}
 .scene-label-note{font-size:12px;color:#587083;display:block}
 #direction-legend{flex-basis:100%;white-space:normal}
 .x-key{color:#b44545}.y-key{color:#277959}.z-key{color:#3d6bb0}.target-key{color:#b33774}.pivot-key{color:#566574}
@@ -84,6 +86,7 @@ input[aria-invalid=true]{border-color:#c54a3b}a{color:var(--accent)}.file{font-s
 .coincident-list{list-style:none;margin:12px 0;padding:0}.coincident-list li{padding:12px 0;border-bottom:1px solid var(--line)}.coincident-list strong{font-size:14px}.coincident-list p{font-size:12px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 @media(min-width:1500px){.workbench{grid-template-columns:280px minmax(0,1fr)}}
 @media(max-width:720px){
+  .diagnostic-guide{padding:6px 10px;gap:5px 10px}.diagnostic-guide>span{order:3;flex-basis:100%;min-width:0}.diagnostic-guide button{margin-left:auto}
   body{overflow:auto}#app{height:auto;min-height:100dvh}.app-header{padding:12px;flex-wrap:wrap;gap:7px}.app-title{gap:9px}h1{font-size:17px}.app-title span{font-size:11px}.header-actions{width:100%;justify-content:space-between}.header-actions button{min-height:30px;font-size:12px}
   .workbench{display:flex;flex-direction:column;overflow:visible;flex:none}.viewport-wrap{order:0;position:sticky;top:0;z-index:3;height:clamp(390px,62dvh,550px);flex:none;border-bottom:1px solid var(--line)}.left{order:1;border-right:0;overflow:visible;padding:14px 12px}
   .toolbar{padding:6px 9px;gap:7px}.camera-actions{gap:4px}.toolbar button{padding:4px 7px;font-size:12px;min-height:30px}.selected-caption{display:none}.diagnostic-toggle{font-size:12px}

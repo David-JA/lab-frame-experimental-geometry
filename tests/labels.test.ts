@@ -116,7 +116,7 @@ describe('world coincidence and sparse captions',()=>{
     expect(labelPresentation([entries[1]]).emphasis).toBe('selected');
   });
   it('keeps C basis, lattice and target direction semantically distinct',()=>{
-    const entries=[label('C X',undefined,undefined,{role:'crystal'}),label('[100]',undefined,undefined,{role:'lattice'}),label('目标方向 [1 0 0]',undefined,undefined,{role:'target',priority:5})];
+    const entries=[label('晶体 X',undefined,undefined,{role:'crystal'}),label('[100]',undefined,undefined,{role:'lattice'}),label('目标方向 [1 0 0]',undefined,undefined,{role:'target',priority:5})];
     const presentation=labelPresentation(entries,true);
     expect(presentation.primary?.role).toBe('target');expect(presentation.details.map(e=>e.role)).toEqual(['crystal','lattice']);
     expect(labelPresentation(entries).details).toEqual([]);
@@ -124,13 +124,23 @@ describe('world coincidence and sparse captions',()=>{
   });
   it('never creates common-point groups from display arrow tips or axis captions',()=>{
     const p=new Vector3(55,200,0);
-    const entries=[label('S',undefined,p),label('目标点',undefined,p,{role:'point'}),label('C X',undefined,p,{role:'crystal'}),
+    const entries=[label('S',undefined,p),label('目标点',undefined,p,{role:'point'}),label('晶体 X',undefined,p,{role:'crystal'}),
       label('[100]',undefined,p,{role:'lattice'}),label('目标方向 [1 0 0]',undefined,p,{role:'target'}),label('φ 轴',undefined,p,{role:'axis'})];
-    expect(groupSceneLabels(entries).map(g=>g.entries.map(e=>e.text))).toEqual([['S','目标点'],['C X'],['[100]'],['目标方向 [1 0 0]'],['φ 轴']]);
+    expect(groupSceneLabels(entries).map(g=>g.entries.map(e=>e.text))).toEqual([['S','目标点'],['晶体 X'],['[100]'],['目标方向 [1 0 0]'],['φ 轴']]);
   });
 });
 
 describe('presentation-only layer policy',()=>{
+  it('isolates diagnostic families and their device context without rewriting saved display choices',()=>{
+    const config=example_config(),before=structuredClone(config);
+    expect(viewPolicy(config,{diagnostics:true}).layers).toEqual({frames:false,crystal:true,lattice:false});
+    expect([...viewPolicy(config,{diagnostics:true}).axisDeviceIds]).toEqual([]);
+    expect(viewPolicy(config,{diagnostics:true,diagnosticPreset:'lattice'}).layers).toEqual({frames:false,crystal:false,lattice:true});
+    expect(viewPolicy(config,{diagnostics:true,diagnosticPreset:'devices'}).layers).toEqual({frames:true,crystal:false,lattice:false});
+    expect(config).toEqual(before);
+    config.experiment_state.display.crystal=false;
+    expect(viewPolicy(config,{diagnostics:true,diagnosticPreset:'crystal'}).layers).toEqual({frames:false,crystal:false,lattice:false});
+  });
   it('defaults to the integrated theta host without changing scientific display flags',()=>{
     const config=example_config(),before=structuredClone(config),policy=viewPolicy(config,{});
     expect(policy.selected?.id).toBe('theta');expect(policy.diagnostics).toBe(false);
@@ -142,9 +152,9 @@ describe('presentation-only layer policy',()=>{
   });
   it('honors each independent display flag only in diagnostics',()=>{
     const config=example_config();config.experiment_state.display={frames:false,crystal:true,lattice:false};
-    expect(viewPolicy(config,{diagnostics:true,selectedDeviceId:'xy'}).layers).toEqual({frames:false,crystal:true,lattice:false});
+    expect(viewPolicy(config,{diagnostics:true,diagnosticPreset:'all',selectedDeviceId:'xy'}).layers).toEqual({frames:false,crystal:true,lattice:false});
     config.experiment_state.display={frames:true,crystal:false,lattice:true};
-    expect(viewPolicy(config,{diagnostics:true}).layers).toEqual({frames:true,crystal:false,lattice:true});
+    expect(viewPolicy(config,{diagnostics:true,diagnosticPreset:'all'}).layers).toEqual({frames:true,crystal:false,lattice:true});
     expect(viewPolicy(config,{diagnostics:false}).layers).toEqual({frames:false,crystal:false,lattice:false});
   });
 });
@@ -253,13 +263,13 @@ describe('viewer display integration',()=>{
     expect(viewer.diagnostics().selected_device_id).toBe('theta');
     const physicalBefore:unknown[]=[];viewer.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId)physicalBefore.push([o.uuid,Array.from(o.geometry.attributes.position.array),[...o.matrixWorld.elements]]);});
     const captions=host.querySelectorAll('.scene-label').map(el=>el.textContent);
-    expect(captions.join(' ')).toContain('目标点');expect(captions.join(' ')).not.toContain('C X');expect(captions.join(' ')).not.toContain('[100]');expect(captions.join(' ')).not.toContain('pivot');
+    expect(captions.join(' ')).toContain('目标点');expect(captions.join(' ')).not.toContain('晶体 X');expect(captions.join(' ')).not.toContain('[100]');expect(captions.join(' ')).not.toContain('pivot');
     expect(captions.join(' ')).toContain('XYθ');expect(captions.join(' ')).not.toContain('theta');expect(captions.join(' ')).not.toContain('P1');
     expect(host.querySelectorAll('.scene-label').some(el=>JSON.parse(el.dataset.members).some((entry:{text:string})=>entry.text==='P1'))).toBe(true);
-    viewer.set_view({selectedDeviceId:'hexapod',diagnostics:true});
+    viewer.set_view({selectedDeviceId:'hexapod',diagnostics:true,diagnosticPreset:'all'});
     const bodies:Mesh[]=[];viewer.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId)bodies.push(o);});
     expect(bodies.filter(o=>o.userData.selection==='selected').map(o=>o.userData.bodyPart).sort()).toEqual(['lower-adapter','lower-disc','upper-adapter','upper-disc']);
-    expect(host.querySelectorAll('.scene-label').map(el=>el.textContent).join(' ')).toContain('C X');
+    expect(host.querySelectorAll('.scene-label').map(el=>el.textContent).join(' ')).toContain('晶体 X');
     expect(host.querySelectorAll('.scene-label').map(el=>el.textContent).join(' ')).toContain('[100]');
     viewer.set_view({diagnostics:false});expect(viewer.diagnostics().selected_device_id).toBe('hexapod');
     const physicalAfter=bodies.map(o=>[o.uuid,Array.from(o.geometry.attributes.position.array),[...o.matrixWorld.elements]]);
@@ -268,7 +278,7 @@ describe('viewer display integration',()=>{
   it('preserves matrix, support, detector-plane and C-origin diagnostics under nonzero poses',()=>{
     const config=example_config(),sample=config.devices.devices.find(d=>d.crystal)!;sample.crystal!.center_s_mm=[3,7,-2];sample.crystal!.target_point_s_mm=[9,-4,6];
     const geometry=load_scene(config);geometry.set_platform_pose('hexapod',{translation_mm:[2,4,6],rotation_deg:[13,21,-9]});geometry.set_joint_value('rotary.phi',31);geometry.set_joint_value('theta.angle',47);
-    viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.set_view({diagnostics:true});viewer.update(geometry);
+    viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.set_view({diagnostics:true,diagnosticPreset:'all'});viewer.update(geometry);
     for(const key of ['max_world_matrix_error','max_support_endpoint_error_mm','max_detector_plane_error_mm','max_crystal_origin_error_mm'] as const)expect(viewer.diagnostics()[key]).toBeLessThan(1e-8);
     viewer.focus_sample();expect(viewer.controls.target.toArray()).toEqual(geometry.get_sample_point('sample').position);
     const closeDistance=viewer.camera.position.distanceTo(viewer.controls.target);viewer.reset_camera();
@@ -297,21 +307,21 @@ describe('viewer display integration',()=>{
   });
   it('renders lattice independently of C and generic frames in diagnostics',()=>{
     const config=example_config();config.experiment_state.display={frames:false,crystal:false,lattice:true};
-    viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(load_scene(config));viewer.set_view({diagnostics:true});
+    viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(load_scene(config));viewer.set_view({diagnostics:true,diagnosticPreset:'all'});
     const labels=host.querySelectorAll('.scene-label'),text=labels.map(el=>el.textContent).join(' ');
-    expect(text).toContain('[100]');expect(text).not.toContain('C X');expect(text).toContain('theta · P1');
+    expect(text).toContain('[100]');expect(text).not.toContain('晶体 X');expect(text).toContain('theta · P1');
     const frames=labels.flatMap(el=>JSON.parse(el.dataset.members)).filter((entry:{role:string})=>entry.role==='frame');
     expect(frames.map((entry:{text:string})=>entry.text)).toEqual(['P1']);
     expect(viewer.diagnostics().diagnostic_layers).toEqual({enabled:true,frames:false,crystal:false,lattice:true});
   });
   it('keeps coincident C-X and lattice-100 display tips separate for an offset sample center',()=>{
     const config=example_config();config.devices.devices.find(d=>d.crystal)!.crystal!.center_s_mm=[-30,0,0];
-    viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.set_view({diagnostics:true});viewer.update(load_scene(config));
+    viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.set_view({diagnostics:true,diagnosticPreset:'all'});viewer.update(load_scene(config));
     const labels=host.querySelectorAll('.scene-label');
     const find=(text:string)=>labels.find(el=>JSON.parse(el.dataset.members).some((entry:{text:string})=>entry.text===text))!;
-    const cX=find('C X'),a=find('[100]');
+    const cX=find('晶体 X'),a=find('晶向 [100]');
     expect(cX).not.toBe(a);expect(JSON.parse(cX.dataset.world)).toEqual([55,200,0]);expect(cX.dataset.world).toBe(a.dataset.world);
-    expect(cX.textContent).toBe('C X');expect(a.textContent).toBe('[100]');
+    expect(cX.textContent).toBe('晶体 X');expect(a.textContent).toBe('晶向 [100]');
     expect(cX.dataset.emphasis).toBe('plain');expect(a.dataset.emphasis).toBe('plain');
     expect(cX.querySelectorAll('.scene-label-inspect')).toHaveLength(0);expect(a.querySelectorAll('.scene-label-inspect')).toHaveLength(0);
   });

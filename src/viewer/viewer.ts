@@ -8,7 +8,7 @@ import { viewPolicy, type ViewerCallbacks, type ViewerView } from './view-policy
 interface Body {id:string;mesh:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;color:THREE.Color;edges:THREE.LineBasicMaterial}
 interface PointerGesture {id:number;x:number;y:number;dragged:boolean}
 
-const colors={xyz:[0xb44545,0x277959,0x3d6bb0],phi:0x9a6500,theta:0x7251b3,beam:0x087e9a,pivot:0x566574,sample:0x243e52,target:0xb33774};
+const colors={xyz:[0xb42318,0x00643f,0x1d4ed8],phi:0x8a5700,theta:0x6525a8,beam:0x006878,pivot:0x3f4e5c,sample:0x243e52,target:0xad0d65};
 const vector=(p:Vec3)=>new THREE.Vector3(...p);
 function matrix(m:Mat4){
   return new THREE.Matrix4().set(m[0],m[1],m[2],m[3],m[4],m[5],m[6],m[7],m[8],m[9],m[10],m[11],m[12],m[13],m[14],m[15]);
@@ -72,7 +72,7 @@ export class GeometryViewer {
   };
   set_view(options:ViewerView):void{
     const next={...this.#view,...options};
-    if(next.selectedDeviceId===this.#view.selectedDeviceId&&next.diagnostics===this.#view.diagnostics)return;
+    if(next.selectedDeviceId===this.#view.selectedDeviceId&&next.diagnostics===this.#view.diagnostics&&next.diagnosticPreset===this.#view.diagnosticPreset)return;
     this.#view=next;if(this.#geometry)this.update(this.#geometry);
   }
   #bodyBounds(predicate:(body:Body)=>boolean=()=>true){
@@ -197,9 +197,13 @@ export class GeometryViewer {
     if(length>1e-12)mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
     this.#dynamic.add(mesh);return mesh;
   }
-  #dashedLine(a:Vec3,b:Vec3,color:number,overlay=false){
-    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([vector(a),vector(b)]),new THREE.LineDashedMaterial({color,dashSize:8,gapSize:5,depthTest:!overlay}));
-    line.computeLineDistances();if(overlay)line.renderOrder=2;this.#dynamic.add(line);return line;
+  #dashedLine(a:Vec3,b:Vec3,color:number,overlay=false,radius=1.1){
+    const delta=vector(b).sub(vector(a)),length=delta.length();if(length<1e-12)return;
+    const direction=delta.normalize();
+    for(let start=0;start<length;start+=19){
+      const line=this.#line(vector(a).addScaledVector(direction,start).toArray(),vector(a).addScaledVector(direction,Math.min(start+11,length)).toArray(),color,radius);
+      line.material.depthTest=!overlay;if(overlay)line.renderOrder=2;
+    }
   }
   #marker(p:Vec3,color:number,label:string,pivot=false,visible=true,targetPoint=false){
     if(visible){
@@ -209,33 +213,43 @@ export class GeometryViewer {
     }
     this.#label(label,this.#dynamic,p,'point',color,targetPoint?7:5,{visible,targetPoint});
   }
-  #arrow(p:Vec3,d:Vec3,color:number,label:string,length=75,role:LabelRole='crystal',dashed=false){
-    const arrow=new THREE.ArrowHelper(vector(d),vector(p),length,color,dashed?6:9,dashed?3:4);this.#dynamic.add(arrow);
+  #arrow(p:Vec3,d:Vec3,color:number,label:string|undefined,length=75,role:LabelRole='crystal',dashed=false){
+    const head=role==='target'?14:11,radius=role==='target'?1.5:1;
+    const arrow=new THREE.ArrowHelper(vector(d),vector(p),length,color,head,role==='target'?9:7);this.#dynamic.add(arrow);
+    arrow.line.visible=false;
+    (arrow.cone.material as THREE.MeshBasicMaterial).depthTest=false;arrow.cone.renderOrder=3;
     const end=p.map((x,i)=>x+d[i]*length) as Vec3;
-    if(dashed){arrow.line.visible=false;this.#dashedLine(p,end,color,true);}
-    this.#label(label,this.#dynamic,end,role,color,role==='target'?5:3);
+    const shaft=p.map((x,i)=>x+d[i]*(length-head)) as Vec3;
+    if(dashed)this.#dashedLine(p,shaft,color,true,radius);
+    else{const line=this.#line(p,shaft,color,radius);line.material.depthTest=false;line.renderOrder=2;}
+    if(label)this.#label(label,this.#dynamic,end,role,color,role==='target'?5:3);
     return arrow;
   }
   update(geometry:GeometryScene){
     this.#geometry=geometry;
     const c=geometry.save_state(),key=JSON.stringify({devices:c.devices,assembly:c.assembly});
-    this.#policy=viewPolicy(c,this.#view);const {selected,diagnostics,layers,axisDeviceIds}=this.#policy;
+    this.#policy=viewPolicy(c,this.#view);const {selected,diagnostics,diagnosticPreset,layers,axisDeviceIds}=this.#policy;
+    const deviceContext=diagnostics&&(diagnosticPreset==='devices'||diagnosticPreset==='all');
     const primarySample=selected?.crystal?selected:c.devices.devices.find(d=>d.crystal);
     if(primarySample)this.#sampleFocus=geometry.get_sample_point(primarySample.id).position;
     if(this.#key!==key){this.#rebuild(c);this.#key=key;}
     for(const [id,g]of this.#groups)g.matrix.copy(matrix(geometry.get_local_transform(id)));
-    this.#axes.forEach((a,id)=>a.visible=layers.frames||(!diagnostics&&id===selected?.output_frame));
+    this.#axes.forEach((a,id)=>a.visible=!diagnostics&&id===selected?.output_frame);
     this.#highlightBodies();this.#clear(this.#dynamic);this.#labelEntries=[];
     const crystalFrames=new Set(c.devices.devices.filter(d=>d.crystal).map(d=>d.crystal!.frame));
     const integratedTheta=selected?.type==='theta'&&c.devices.devices.some(d=>d.type==='xy'&&d.integrated_into===selected.id);
-    const selectedCaption=selected?(diagnostics?selected.id+' · '+selected.output_frame:integratedTheta?'XYθ':'当前装置'):undefined;
+    const selectedCaption=selected?(diagnostics&&diagnosticPreset==='all'?selected.id+' · '+selected.output_frame:integratedTheta?'XYθ':selected.crystal?'样品':'当前装置'):undefined;
     for(const [id,g]of this.#groups){
-      const isSelected=id===selected?.output_frame,visible=isSelected||(crystalFrames.has(id)?layers.crystal:layers.frames);
+      const isSelected=id===selected?.output_frame,frameVisible=layers.frames&&(diagnosticPreset==='all'||id==='LAB'||isSelected),visible=isSelected||(crystalFrames.has(id)?layers.crystal:frameVisible);
       if(!diagnostics||visible)this.#label(id,g,[0,0,0],'frame',0x36566c,isSelected?6:1,{visible,emphasis:isSelected?'selected':'plain',caption:isSelected?selectedCaption:undefined});
+      if(frameVisible&&!crystalFrames.has(id)){
+        const m=geometry.get_frame_transform('LAB',id).matrix,p=point(m,[0,0,0]);
+        ([[1,0,0],[0,1,0],[0,0,1]] as Vec3[]).forEach((v,i)=>this.#arrow(p,unit(direction(m,v)),colors.xyz[i],diagnosticPreset==='devices'?(id==='LAB'?'实验室 ':'装置 ')+['X','Y','Z'][i]:undefined,id==='LAB'?60:38,'axis'));
+      }
     }
     const beam=c.assembly.beam,pb=beam.point_mm;
     this.#line([pb[0],pb[1],pb[2]-250],[pb[0],pb[1],pb[2]+1200],colors.beam,.55);
-    if(diagnostics)this.#label('beam +Z',this.#dynamic,[pb[0],pb[1],pb[2]+700],'beam',colors.beam,2);
+    if(deviceContext)this.#label('入射光束 +Z',this.#dynamic,[pb[0],pb[1],pb[2]+700],'beam',colors.beam,2);
     const axes=c.devices.devices.filter(d=>(d.type==='rotary'||d.type==='theta')&&axisDeviceIds.has(d.id)).map(d=>{
       const axis=geometry.get_axis(d.id),m=geometry.get_frame_transform('LAB',axis.frame).matrix;
       return {device:d,p:point(m,axis.point_mm),v:unit(direction(m,axis.direction))};
@@ -259,12 +273,12 @@ export class GeometryViewer {
           this.#line(point(base,[-diagonal*x*.4,side*y*.35,z]),point(top,[diagonal*x*.4,side*y*.35,-z]),0x30363c,3);
         }
       }
-      if(d.type==='hexapod')this.#marker(geometry.get_pivot(d.id).position,colors.pivot,'pivot',true,diagnostics);
+      if(d.type==='hexapod')this.#marker(geometry.get_pivot(d.id).position,colors.pivot,'旋转参考点',true,deviceContext&&(diagnosticPreset==='all'||selected?.id===d.id));
       if((d.type==='rotary'||d.type==='theta')&&axisDeviceIds.has(d.id)){
         const a=axes.find(a=>a.device.id===d.id)!,{p,v}=a;
         const focusDistance=vector(this.#sampleFocus).sub(vector(p)).dot(vector(v)),extent=Math.max(260,focusDistance+100);
         const start=p.map((x,i)=>x-v[i]*80) as Vec3,end=p.map((x,i)=>x+v[i]*extent) as Vec3;
-        if(d.type==='theta')this.#dashedLine(start,end,colors.theta,true);else this.#line(start,end,colors.phi,.8);
+        if(d.type==='theta')this.#dashedLine(start,end,colors.theta,true);else this.#line(start,end,colors.phi,1.2);
         const shared=axes.find(b=>b.device.type!==d.type&&coaxial(a,b));
         if(d.type==='theta'&&shared)continue;
         const label=shared?'φ / θ 共轴':d.type==='rotary'?'φ 轴':'θ 轴';
@@ -273,18 +287,18 @@ export class GeometryViewer {
       }
       if(d.crystal){
         const p=geometry.get_sample_point(d.id,'center').position,target=geometry.get_sample_point(d.id).position,state=c.experiment_state.samples[d.id];
-        this.#marker(p,colors.sample,'样品中心',false,diagnostics);
+        this.#marker(p,colors.sample,'样品中心',false,deviceContext);
         this.#marker(target,colors.target,'目标点',false,true,true);
         const basis:Vec3[]=[[1,0,0],[0,1,0],[0,0,1]];
         if(layers.crystal){
           const r=geometry.get_frame_transform('LAB',d.crystal.frame).matrix;
           const origin=point(r,[0,0,0]);
           basis.forEach((v,i)=>{
-            const arrow=this.#arrow(origin,unit(direction(r,v)),colors.xyz[i],'C '+['X','Y','Z'][i],55);arrow.updateWorldMatrix(true,false);
+            const arrow=this.#arrow(origin,unit(direction(r,v)),colors.xyz[i],'晶体 '+['X','Y','Z'][i],55);arrow.updateWorldMatrix(true,false);
             this.#crystalOriginError=Math.max(this.#crystalOriginError,new THREE.Vector3().setFromMatrixPosition(arrow.matrixWorld).distanceTo(vector(origin)));
           });
         }
-        if(layers.lattice)basis.forEach((v,i)=>this.#arrow(p,geometry.get_crystal_direction(d.id,v).vector,colors.xyz[i],['[100]','[010]','[001]'][i],85,'lattice',true));
+        if(layers.lattice)basis.forEach((v,i)=>this.#arrow(p,geometry.get_crystal_direction(d.id,v).vector,colors.xyz[i],'晶向 '+['[100]','[010]','[001]'][i],85,'lattice',true));
         const targetDirection=geometry.get_crystal_direction(d.id,state.target_indices,state.direction_type).vector,targetLength=110;
         this.#arrow(target,targetDirection,colors.target,(state.direction_type==='direct'?'目标方向 [':'目标法向 (')+state.target_indices.join(' ')+(state.direction_type==='direct'?']':')'),targetLength,'target');
         if(d.id===primarySample?.id)primaryTargetTip=vector(target).addScaledVector(vector(targetDirection),targetLength);
@@ -314,7 +328,7 @@ export class GeometryViewer {
     }
     const floor=this.#bodyBounds();if(!floor.isEmpty())this.#grid.position.y=floor.min.y-2;
     if(this.#revision<0)this.reset_camera();
-    this.#labels.set(this.#labelEntries,geometry.revision,{diagnostics});this.#labels.render(this.camera);
+    this.#labels.set(this.#labelEntries,geometry.revision,{diagnostics:diagnostics&&diagnosticPreset==='all'});this.#labels.render(this.camera);
     this.#revision=geometry.revision;
   }
   diagnostics(){return {rendered_revision:this.#revision,frame_count:this.#groups.size,max_world_matrix_error:this.#maxError,max_support_endpoint_error_mm:this.#rodError,max_detector_plane_error_mm:this.#detectorError,max_crystal_origin_error_mm:this.#crystalOriginError,selected_device_id:this.#policy?.selected?.id??null,diagnostic_layers:{enabled:this.#policy?.diagnostics??false,...(this.#policy?.layers??{frames:false,crystal:false,lattice:false})},webgl:true};}

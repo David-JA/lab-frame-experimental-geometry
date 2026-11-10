@@ -1,6 +1,10 @@
-# Lab-Frame Experimental Geometry
+# SSRF-BL12SW 实验几何工作台
 
-基于实验室坐标系的实验装置几何与运动学可视化工具，面向单晶衍射实验的装置布局、嵌套运动与晶体方向表达。
+Lab-Frame Experimental Geometry 是面向 **SSRF-BL12SW** 的实验几何工作台：在实验室坐标系中交互查看大样品台、六轴位移台、Z平台、XYθ、样品与探测器，理解嵌套运动和单晶方向。
+
+[在线试用](https://david-ja.github.io/lab-frame-experimental-geometry/) · [提出建议或报告问题](https://github.com/David-JA/lab-frame-experimental-geometry/issues/new/choose) · [查看反馈](https://github.com/David-JA/lab-frame-experimental-geometry/issues)
+
+欢迎老师和试用者反馈尺寸、安装层级、运动读数、交互或实验需求。反馈可附操作步骤、截图或导出的JSON；尺寸请注明单位及对应参考面。维护者根据问题更新Spec、验证实现，再发布更新。网页参数和导入JSON在当前浏览器处理；刷新会重载默认配置，修改请先导出JSON。
 
 本仓库用于承载独立的软件实现，包括装置层级、坐标变换、晶体方向计算和 Three.js 可视化。任务范围与验收由下列 Issue 持有，不在本仓库复制第二份任务台账。
 
@@ -9,30 +13,35 @@
 - [Obsidian #38：单晶衍射实验装置参数化运动学与晶体学三维可视化](https://github.com/David-JA/obsidian/issues/38) — 本工具的需求、G0/G1 验收及阶段状态入口。
 - [Parent #32：可校准的单晶衍射虚拟实验平台](https://github.com/David-JA/obsidian/issues/32) — 本工具的上层项目；本工具独立交付，不作为 C0 虚拟采集的前置条件。
 
-## 本地仓库
+## 仓库与发布
 
 - 仓库名称：`lab-frame-experimental-geometry`
-- 路径：`C:\coding_project\lab-frame-experimental-geometry`
+- 公开仓库：[David-JA/lab-frame-experimental-geometry](https://github.com/David-JA/lab-frame-experimental-geometry)
 - 初始分支：`main`
-- 当前仅使用本地 Git，未配置远端，也未创建 PR。
+- GitHub Pages由[发布工作流](./.github/workflows/pages.yml)在main更新后执行测试、构建与部署；工作流失败时不替换线上版本。
+- 本次直接发布已审main，不要求创建PR；后续变更按实际反馈决定协作方式。
 
 ## 当前状态
 
 2026-11-10：T9高度配置与独立Z平台已提交 `06a6494`。T10图纸尺寸更正和分层配色均通过对应review，现已按用户授权随本次本地提交保存。六轴总高350 mm，大样品台水平截面450×450 mm；亮银六轴、中灰转接板与青绿XYθ用于区分层级。G0/G1正式接受仍待单独决定；图纸包络与粗测不作为实物标定或硬件运动依据。
 
-当前进度、验证与接受边界由 [Spec](./discuss/20261109_issue38_g0_g1_minimal_spec.md) 持有；旧 handoff 已按用户要求删除，历史版本可从 Git 查阅。仍不推送、不创建 PR。
+当前进度、验证与接受边界由[Spec](./discuss/20261109_issue38_g0_g1_minimal_spec.md)持有；旧handoff已删除，历史版本可从Git查阅。公开试用不等同于G0/G1正式接受。
 
 ## 本地开发
 
 使用 Node 24（当前验证 24.17.0）和 npm（当前 11.13.0）：
 
 ```sh
+git clone https://github.com/David-JA/lab-frame-experimental-geometry.git
+cd lab-frame-experimental-geometry
 npm ci --ignore-scripts
 npm run typecheck
 npm test -- --run
 npm run build
 npm run dev
 ```
+
+`npm run preview`可本地预览`dist`构建。开发默认使用根路径；Pages工作流通过`PAGES_BASE_PATH`设置仓库子路径，只上传`dist`，使用GitHub Pages的OIDC部署权限，不需要另配个人token。维护者在仓库Settings → Pages选择GitHub Actions；发布过程参考[Vite官方指南](https://vite.dev/guide/static-deploy.html#github-pages)与[GitHub自定义工作流说明](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。
 
 默认只在 `127.0.0.1` 运行；终端会给出本机地址，通常为 `http://127.0.0.1:5173`。合成示例在 `examples/experimental-setup/`，默认卷尺高度配置由 `src/example.ts` 的 `lab_height_config()` 复用它生成；`?example=synthetic` 可直接查看原合成示例。配置抽屉也可分别恢复两者。输入结构在 `schema/setup.schema.json`，纯计算入口为 `src/core/index.ts`。核心不依赖 Three.js、DOM 或 WebGL；UI 与渲染消费同一份场景状态。
 
@@ -92,3 +101,7 @@ npm run dev
 ## 开发方案
 
 [G0/G1 最小实现与验收 Spec](./discuss/20261109_issue38_g0_g1_minimal_spec.md) 按 PWA Basic Spec 模板组织，明确计算核心、Three.js 页面、配置与 Agent 接口的开发顺序和验收方法，并回填实际验证范围。
+
+## 开源许可
+
+源码及原创文档采用[MIT License](./LICENSE)。第三方依赖和用户提供参考图的授权范围见[NOTICE](./NOTICE.md)。

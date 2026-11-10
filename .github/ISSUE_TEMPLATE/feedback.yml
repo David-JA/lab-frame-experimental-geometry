@@ -1,0 +1,28 @@
+name: 试用反馈 / 功能建议
+description: 反馈SSRF-BL12SW实验几何工作台的问题或实验需求
+title: "[反馈] "
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: 反馈类型
+      options:
+        - 装置尺寸或安装层级
+        - 运动、坐标或晶体读数
+        - 配色、标签或交互
+        - 新功能或实验需求
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: observation
+    attributes:
+      label: 现象或建议
+      description: 请描述实际问题、期望行为或希望辅助的实验场景。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 操作步骤或参考数据（可选）
+      description: 可附截图、导出的JSON、浏览器版本或参考尺寸；尺寸请注明单位与对应表面。

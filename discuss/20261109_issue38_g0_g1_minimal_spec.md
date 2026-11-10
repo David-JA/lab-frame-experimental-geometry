@@ -4,7 +4,7 @@ Status: Active
 Issue: [Obsidian #38](https://github.com/David-JA/obsidian/issues/38)
 Created: 2026-11-09
 Decision owner: Maintainer
-Current phase: T10图纸尺寸及分层配色已按用户授权随本次本地提交保存；尺寸两轮双review与配色delta双review均PASS。准备T11 SSRF-BL12SW公开仓库与Pages发布；5173保留，G0/G1用户接受仍Open，保持Active
+Current phase: T10尺寸/配色已提交59e01ec；T11发布准备经Astra high PASS，按本轮授权提交并发布David-JA公开仓库/Pages中；5173保留，G0/G1用户接受仍Open，保持Active
 
 ## Goal and scope
 
@@ -24,12 +24,12 @@ Current phase: T10图纸尺寸及分层配色已按用户授权随本次本地�
 - #38 已明确 `LAB→R→H0→H1→P0→P1(θ)→P2(XY)→S→C`；θ 在下、XY 在上由用户最终确认，不再作为待选方案。
 - #38 要求 `+Y_lab` 向上、`+Z_lab` 入射、右手系、列向量变换；hexapod 变换须包含零位安装 `T0`。C 是正交笛卡尔 frame，直接晶格基矢 A 不必正交。
 - 设计时实物参数尚未提供；T9收到卷尺安装高度，T10收到六轴尺寸图及总高更正，来源与当前尺寸见[高度记录](./20261110_lab_height_survey.md)。完整安装pose、控制器UVW映射、认证行程及晶体取向文件仍缺，本Spec不宣称真实装置校准或运动可执行性。
-- PWA 的 [Spec workflow](../../pwa1483_1d_scan_stress/docs/workflows/discuss_spec_workflow.md) 与 [Basic 模板](../../pwa1483_1d_scan_stress/docs/workflows/spec_template_basic.md) 作为结构参考，读取时本地版本为 `350f3cd5661a90fb0a00c7f50286a7b856892e99`。选择 Basic 单文件：需求与有序开发属于一个有界交付，无已确定的长期、多 PR 或高频执行记录，不满足 Split 的同时条件。
+- PWA的[Spec workflow](https://github.com/David-JA/single-crystal-stress/blob/350f3cd5661a90fb0a00c7f50286a7b856892e99/docs/workflows/discuss_spec_workflow.md)与[Basic模板](https://github.com/David-JA/single-crystal-stress/blob/350f3cd5661a90fb0a00c7f50286a7b856892e99/docs/workflows/spec_template_basic.md)作为结构参考，读取版本为350f3cd5661a90fb0a00c7f50286a7b856892e99。选择Basic单文件：本阶段属于一个有界交付，不复制PWA的多PR/正式运行合同。
 - 不将 PWA 的材料 baseline、数据目录、双语全套文档或 PR/merge 流程复制到新仓库；这里只采用“先稳定合同、再列方案/任务/验证”的组织方式。PWA 生成器固定其仓库根，因此按模板在本仓撰写，不调用它向 PWA 写文件。
 
 ## Required deliverables
 
-**当前收尾交付：** T10依据图纸更新默认六轴包络、总高及450 mm方柱，同步高度预算、验证与双review。T9已提交，旧handoff已删除，评审网页服务保留。审阅版本、scope、verdict及findings留在任务聊天；本文只回填任务状态、结论和实际覆盖，不维护逐轮日志。
+**当前收尾交付：** T10尺寸及配色已提交59e01ec。T11根据本轮授权，准备公开仓库、README/网页SSRF-BL12SW身份、MIT/参考资料许可边界、反馈入口及Pages工作流；经Astra high通过后提交、创建仓库和推送，并验证线上网页与双向Issue关联。旧handoff不恢复，5173评审服务保留。
 
 **后续 G0/G1 实施：**
 
@@ -286,6 +286,19 @@ T10 图纸更正：用户指出此前460 mm为读数错误。本体320 mm已经�
 T10验证：91 tests（61核心＋30展示）、typecheck/build PASS；9 E2E PASS（34.5 s），当前截图刷新为ignored `artifacts/lab-height-{apparatus,sample,overview,mobile}.png`，两位reviewer逐一查看。18.2 mm的Float32网格顶点误差约3.8×10⁻⁷ mm，仅相关mesh厚度断言用5×10⁻⁷ mm容差，核心数值容差不变。构建主JS775.00 kB/gzip204.90 kB，原Vite体积提示保留。图纸原始输入单份保存用于尺寸来源核对；下盘非圆细节、孔系与真实支杆解算未实施。旧合成示例/快照兼容通过，原5173评审服务保留；T10尺寸与配色现已按用户授权一并本地提交，G0/G1用户接受仍待单独决定。
 
 T10后续分层配色：用户最终明确六轴主体亮银、上下转接板灰色。默认圆盘与支杆使用#DDE3E8，方形转接板为中灰#77818B；降低金属度以避免日间光照下变暗。XYθ改为同族青绿（θ底座#3E817B、XY滑台#87B9AC），Z平台炭黑、方柱浅黄、样品棕色。支杆颜色跟随所属六轴配置；树色块、装置说明与README同步。尺寸/位姿/高度预算沿用已审版本。主Agent已在5173核查装置近景、样品近景、窄屏及选中六轴截图 `artifacts/layer-palette-*.png`，相机/选择操作前后完整物理snapshot一致，窄屏无横向溢出；build/typecheck及diff检查通过（主JS775.16 kB/gzip204.96 kB）。Astra high、Terra xhigh单独进行配色delta视觉/说明review，均PASS，无blocker；两者提出的README“原配色”措辞已由主Agent改为“保留原主体visual.color，转接板/金属材质采用当前规则”。本次未重复运行91单测/9E2E，复用上方仍有效的几何证据；尺寸及配色现已按用户授权一并本地提交，原5173服务保留。
+
+T11 公开试用与发布合同（2026-11-10授权）：维护者确认本项目可以公开，并要求用个人账户建立开源仓库，标明SSRF-BL12SW、开放反馈并准备Pages。连接器当前账户David-JA及公开个人资料已核对；gh初始active为代理账户shanernerak-dev，外部写入时切到David-JA并用API预检，结束恢复原active，不以Git提交身份代替API身份。
+
+目标仓库 `David-JA/lab-frame-experimental-geometry`，公开、main、保留本地历史；不创建PR，不关闭Obsidian#38/Parent#32，不更改G0/G1勾选。之前“仅本地/不推送”是历史阶段约束，已由本轮明确发布授权替代。用户“评审通过后授权提交和推送”作为本轮条件授权：Astra high通过后可继续执行发布，无需重复询问。
+
+- [x] **T11a 已审版本落盘**：T10尺寸/配色提交59e01ec。
+- [x] **T11b 发布准备与Astra review**：README/网页标明SSRF-BL12SW；增加反馈链接与单一Issue表单；源码/原创文档MIT，用户图纸排除在MIT之外；核对公开内容范围和版本历史。工作流使用官方Actions固定SHA，Node24、npm ci、91项数值/展示测试、typecheck/build；仅dist进入Pages，构建失败不部署。
+- [ ] **T11c 公开仓库与Pages**：Astra通过后提交并创建个人public repo、配置origin、推送main；Pages使用GitHub Actions/OIDC，Vite构建子路径由PAGES_BASE_PATH配置，本地5173保持根路径且不停止。实际核对repo owner/visibility、remote/main与本地HEAD、Actions部署SHA/结论、线上资源路径与WebGL交互；失败先在本轮范围修复，不将“已创建repo”写成“网页已上线”。
+- [ ] **T11d 反馈与Issue关联**：新仓库创建“公开试用与反馈”跟踪Issue，链接Obsidian#38和Parent#32；回填#38原实施仓库/状态段及反向跟踪链接，保留其需求、数学合同与未勾选验收项。README/网页可直接提Issue。反馈经澄清来源、单位和目标后更新Spec/验收，测试/必要review通过再发布；不承诺自动实现所有反馈。
+
+T11验收：本地unit/build及仓库子路径产物预览（非根路径JS/CSS可加载、网页标题/反馈链接正确、WebGL与状态更新可用、窄屏无溢出）；原几何证据继续复用，只对新增入口和发布路径做直接核查。线上以实际部署成功和浏览器加载为准，不把GitHub状态码200单独当成功。新GitHub跟踪Issue为公开试用入口，#38继续持有G0/G1验收；Pages公开不等于硬件标定或正式接受。
+
+T11发布准备结果：91 tests与子路径build/typecheck通过，工作流/Issue表单YAML解析通过。临时4174预览访问仓库子路径，JS/CSS实际返回正常；标题/反馈链接正确，XY.x=1触发状态和1 mm读数，WebGL世界矩阵/探测器误差0、杆端误差1.42×10⁻¹⁴ mm；390 px无横向溢出，无pageerror/失败资源。截图为ignored `artifacts/pages-subpath-{desktop,mobile}.png`，主Agent与Astra直接查看；Astra本轮发布准备PASS、无blocker。公开历史文件范围与凭据特征检查未发现敏感凭据或运行产物；本地5173保留。此记录只说明准备就绪，实际仓库/部署/关联状态由T11c/d的回填持有。
 
 T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染依赖相应核心结果。只在实物参数到位时增加“实物配置核对”这一独立验证，不阻塞合成场景实现，也不把它冒充已完成。
 

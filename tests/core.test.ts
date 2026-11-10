@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compare_states, load_scene, SceneError, type Mat4, type SceneConfig, type Vec3 } from '../src/core';
-import { example_config } from '../src/example';
+import { example_config, lab_height_config } from '../src/example';
 
 // Oracles deliberately do not import production matrix/rotation/lattice helpers.
 function close(a:number[],b:number[],tol=1e-8){expect(a.length).toBe(b.length);a.forEach((x,i)=>expect(Math.abs(x-b[i])).toBeLessThanOrEqual(tol));}
@@ -14,6 +14,35 @@ const angle=(a:Vec3,b:Vec3)=>{
   return Math.atan2(Math.hypot(...cross),dot)*180/Math.PI;
 };
 const frame=(c:SceneConfig,id:string)=>c.assembly.frames.find(f=>f.id===id)!;
+describe('laboratory height configuration',()=>{
+  it('keeps the ground, inclusive adapter span and beam reference independent of the selected Z height',()=>{
+    const c=lab_height_config(),s=load_scene(c);
+    close(s.get_world_position('rotary').position,[0,691,0]);
+    close(s.get_world_position('hexapod').position,[0,1109,0]);
+    close(s.get_frame_transform('LAB','Z0').matrix.slice(3,12).filter((_,i)=>i%4===0),[0,1130,0]);
+    close(s.get_world_position('z_stage').position,[0,1280,0]);
+    close(s.get_sample_point('sample').position,[0,1319.5,0]);
+    expect(c.assembly.beam.point_mm).toEqual([0,1380,0]);expect(c.devices.devices.find(d=>d.id==='hexapod')!.visual.adapter_thickness_mm).toBe(15);
+    const before=s.save_state();s.set_joint_value('z_stage.z',200);
+    close(s.get_sample_point('sample').position,[0,1369.5,0]);close(s.get_world_position('hexapod').position,[0,1109,0]);
+    expect(s.save_state().assembly).toEqual(before.assembly);expect(s.get_world_position('detector').position).toEqual([0,1380,1000]);
+    const after=s.save_state(),delta=compare_states(before,after);close(delta.device_delta.sample.translation_delta_lab_mm,[0,50,0]);
+    expect(delta.joint_delta['z_stage.z'].delta).toBe(50);s.restore_state(before);expect(s.save_state()).toEqual(before);
+  });
+  it('inherits nonzero hexapod orientation: local Z travel follows tilted vertical and leaves its base fixed',()=>{
+    const s=load_scene(lab_height_config());s.set_platform_pose('hexapod',{translation_mm:[2,3,4],rotation_deg:[0,0,90]});
+    const base=s.get_world_position('hexapod').position,sample=s.get_sample_point('sample').position,orient=s.get_world_orientation('sample');
+    s.set_joint_value('z_stage.z',175);
+    close(s.get_sample_point('sample').position,sample.map((v,i)=>v+(i===0?-25:0)) as Vec3);
+    close(s.get_world_position('hexapod').position,base);expect(s.get_world_orientation('sample')).toEqual(orient);
+  });
+  it('rejects invalid limits, zero direction and misplaced Z stage atomically while retaining legacy snapshots',()=>{
+    const s=load_scene(lab_height_config()),before=s.save_state();
+    for(const height of [99,201,NaN]){code(()=>s.set_joint_value('z_stage.z',height));expect(s.save_state()).toEqual(before);expect(s.revision).toBe(0);}
+    for(const mutate of [(c:SceneConfig)=>{const m=frame(c,'Z1').motion;if(m.kind==='prismatic')m.axis=[0,0,0];},(c:SceneConfig)=>{frame(c,'Z0').parent='R';},(c:SceneConfig)=>{c.devices.devices.find(d=>d.id==='hexapod')!.visual.adapter_thickness_mm=0;}]){const c=structuredClone(before);mutate(c);code(()=>s.restore_state(c));expect(s.save_state()).toEqual(before);}
+    s.restore_state(example_config());expect(s.get_world_position('sample').position).toEqual([0,200,0]);
+  });
+});
 function code(action:()=>unknown,expected?:string){
   try {action();throw new Error('Expected rejection');}catch(e){expect(e).toBeInstanceOf(SceneError);if(expected)expect((e as SceneError).code).toBe(expected);}
 }

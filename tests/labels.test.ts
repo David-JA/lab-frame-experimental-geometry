@@ -4,7 +4,7 @@ import { groupSceneLabels, labelPresentation, overlaps, placeLabels, SceneLabels
 import { viewPolicy } from '../src/viewer/view-policy';
 import { GeometryViewer } from '../src/viewer/viewer';
 import { load_scene, type Vec3 } from '../src/core';
-import { example_config } from '../src/example';
+import { example_config, lab_height_config } from '../src/example';
 
 vi.mock('three',async importOriginal=>{
   const actual=await importOriginal<typeof import('three')>();
@@ -179,6 +179,18 @@ describe('viewer display integration',()=>{
     vi.stubGlobal('ResizeObserver',class {observe(){}disconnect(){}});
   });
   afterEach(()=>{viewer?.dispose();viewer=undefined;vi.unstubAllGlobals();});
+  it('places surveyed ground, adapters and independent Z plates at their actual height references',()=>{
+    const geometry=load_scene(lab_height_config());viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(geometry);
+    const bounds=(id:string,part='body')=>{let mesh:Mesh|undefined;viewer!.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId===id&&o.userData.bodyPart===part)mesh=o;});expect(mesh).toBeDefined();return new Box3().setFromObject(mesh!);};
+    expect(bounds('rotary').min.y).toBeCloseTo(0,8);expect(bounds('rotary').max.y).toBeCloseTo(670,8);
+    expect(bounds('hexapod','lower-adapter').min.y).toBeCloseTo(670,8);expect(bounds('hexapod','lower-adapter').max.y).toBeCloseTo(685,8);
+    expect(bounds('hexapod','upper-adapter').min.y).toBeCloseTo(1115,8);expect(bounds('hexapod','upper-adapter').max.y).toBeCloseTo(1130,8);
+    expect(bounds('z_stage','lower-plate').min.y).toBeCloseTo(1130,8);expect(bounds('z_stage','upper-plate').max.y).toBeCloseTo(1280,8);
+    expect(bounds('theta').min.y).toBeCloseTo(1280,8);expect(bounds('theta').max.y).toBeCloseTo(bounds('xy').min.y,8);expect(bounds('xy').max.y).toBeCloseTo(bounds('sample').min.y,8);
+    geometry.set_joint_value('z_stage.z',200);viewer.update(geometry);
+    expect(bounds('z_stage','lower-plate').min.y).toBeCloseTo(1130,8);expect(bounds('z_stage','upper-plate').max.y).toBeCloseTo(1330,8);expect(bounds('theta').min.y).toBeCloseTo(1330,8);
+    expect(viewer.diagnostics().max_world_matrix_error).toBeLessThan(1e-8);
+  });
   it('keeps compact metal discs, adapter plates and the column attached to their actual frames',()=>{
     const geometry=load_scene(example_config());viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(geometry);
     const bodies:Mesh[]=[];viewer.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId)bodies.push(o);});

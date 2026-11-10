@@ -141,8 +141,15 @@ export class GeometryViewer {
       const black=new THREE.MeshStandardMaterial({color:0x20252b,metalness:.3,roughness:.62});
       register(d.output_frame,disc(.75),material,offset,'upper-disc');
       register(f.parent,disc(1),material.clone(),[0,0,0],'lower-disc');
-      register(d.output_frame,new THREE.BoxGeometry(x*.85,y,z*.85),black,[offset[0],offset[1]+y,offset[2]],'upper-adapter');
-      register(f.parent,new THREE.BoxGeometry(x*1.08,y,z*1.08),black.clone(),[0,-y,0],'lower-adapter');
+      const thickness=d.visual.adapter_thickness_mm??y,adapterOffset=(y+thickness)/2;
+      register(d.output_frame,new THREE.BoxGeometry(x*.85,thickness,z*.85),black,[offset[0],offset[1]+adapterOffset,offset[2]],'upper-adapter');
+      register(f.parent,new THREE.BoxGeometry(x*1.08,thickness,z*1.08),black.clone(),[0,-adapterOffset,0],'lower-adapter');
+      return;
+    }
+    if(d.type==='z_stage'){
+      const f=this.#config!.assembly.frames.find(f=>f.id===d.output_frame)!;
+      register(d.output_frame,new THREE.BoxGeometry(x,y,z),material,[0,0,-z/2],'upper-plate');
+      register(f.parent,new THREE.BoxGeometry(x,y,z),material.clone(),[0,0,z/2],'lower-plate');
       return;
     }
     let geometry:THREE.BufferGeometry;
@@ -241,15 +248,23 @@ export class GeometryViewer {
     }
     let primaryTargetTip:THREE.Vector3|undefined;
     for(const d of c.devices.devices){
+      if(d.type==='z_stage'){
+        const f=c.assembly.frames.find(f=>f.id===d.output_frame)!,[x,y,z]=d.visual.size_mm;
+        const base=geometry.get_frame_transform('LAB',f.parent).matrix,top=geometry.get_world_transform(d.id).matrix;
+        for(const side of [-1,1])for(const diagonal of [-1,1]){
+          this.#line(point(base,[-diagonal*x*.4,side*y*.35,z]),point(top,[diagonal*x*.4,side*y*.35,-z]),0x30363c,3);
+        }
+      }
       if(d.type==='hexapod')this.#marker(geometry.get_pivot(d.id).position,colors.pivot,'pivot',true,diagnostics);
       if((d.type==='rotary'||d.type==='theta')&&axisDeviceIds.has(d.id)){
         const a=axes.find(a=>a.device.id===d.id)!,{p,v}=a;
-        const start=p.map((x,i)=>x-v[i]*80) as Vec3,end=p.map((x,i)=>x+v[i]*260) as Vec3;
+        const focusDistance=vector(this.#sampleFocus).sub(vector(p)).dot(vector(v)),extent=Math.max(260,focusDistance+100);
+        const start=p.map((x,i)=>x-v[i]*80) as Vec3,end=p.map((x,i)=>x+v[i]*extent) as Vec3;
         if(d.type==='theta')this.#dashedLine(start,end,colors.theta,true);else this.#line(start,end,colors.phi,.8);
         const shared=axes.find(b=>b.device.type!==d.type&&coaxial(a,b));
         if(d.type==='theta'&&shared)continue;
         const label=shared?'φ / θ 共轴':d.type==='rotary'?'φ 轴':'θ 轴';
-        const captionDistance=Math.max(-65,Math.min(245,vector(this.#sampleFocus).sub(vector(p)).dot(vector(v))+60));
+        const captionDistance=Math.max(-65,Math.min(extent===260?245:extent-15,focusDistance+60));
         this.#label(label,this.#dynamic,p.map((x,i)=>x+v[i]*captionDistance) as Vec3,'axis',d.type==='rotary'?colors.phi:colors.theta,4);
       }
       if(d.crystal){

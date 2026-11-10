@@ -135,6 +135,10 @@
         },
         "offset_mm": {
           "$ref": "#/$defs/vec3"
+        },
+        "adapter_thickness_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
         }
       },
       "required": [
@@ -159,7 +163,8 @@
             "xy",
             "sample",
             "detector",
-            "fixture"
+            "fixture",
+            "z_stage"
           ]
         },
         "output_frame": {
@@ -237,6 +242,26 @@
             "pixels",
             "pixel_size_mm",
             "provenance"
+          ],
+          "additionalProperties": false
+        },
+        "description": {
+          "type": "string"
+        },
+        "elevation": {
+          "type": "object",
+          "properties": {
+            "base_mount_y_mm": {
+              "type": "number"
+            },
+            "travel_mm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "base_mount_y_mm",
+            "travel_mm"
           ],
           "additionalProperties": false
         }
@@ -375,6 +400,27 @@
             "kind",
             "joints",
             "axes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "prismatic"
+            },
+            "joint": {
+              "type": "string",
+              "minLength": 1
+            },
+            "axis": {
+              "$ref": "#/$defs/vec3"
+            }
+          },
+          "required": [
+            "kind",
+            "joint",
+            "axis"
           ],
           "additionalProperties": false
         }
@@ -518,6 +564,9 @@
             "distance_mm"
           ],
           "additionalProperties": false
+        },
+        "description": {
+          "type": "string"
         }
       },
       "required": [

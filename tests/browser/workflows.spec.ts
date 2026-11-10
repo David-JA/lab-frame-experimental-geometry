@@ -7,7 +7,7 @@ async function tools(page:Page,tab='config'){
   if(!await page.locator('#workspace-drawer').evaluate(el=>(el as HTMLDialogElement).open))await page.locator('#open-config').click();
   await page.locator('#tab-'+tab).click();
 }
-async function resetScene(page:Page){await tools(page);await page.locator('#reset').click();await closeTools(page);}
+async function resetScene(page:Page){await tools(page);await page.locator('#reset-synthetic').click();await closeTools(page);}
 async function applyConfig(page:Page,config:unknown){await tools(page);await page.locator('#config').fill(JSON.stringify(config));await page.locator('#restore').click();await closeTools(page);}
 async function openDevice(page:Page,id:string){
   await closeTools(page);
@@ -55,7 +55,7 @@ async function checkLabels(page:Page){
 }
 test('V04/V05/V12: eccentricity → centering → nested theta, actual render matrices',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
-  await page.goto('http://127.0.0.1:4173');await expect(page.locator('#readout')).toContainText('样品中心：0, 200, 0');
+  await page.goto('http://127.0.0.1:4173/?example=synthetic');await expect(page.locator('#readout')).toContainText('样品中心：0, 200, 0');
   await checkViewer(page);await page.screenshot({path:'artifacts/overview.png',fullPage:true});
   await joint(page,'xy.x',1);await expect(page.locator('#readout')).toContainText('到 θ 轴：1 mm');
   await joint(page,'xy.x',0);await joint(page,'theta.angle',90);
@@ -86,7 +86,7 @@ test('V04/V05/V12: eccentricity → centering → nested theta, actual render ma
 });
 test('V08/V12: crystal tilt → phi scan and antiparallel alignment',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:4173');
+  await page.goto('http://127.0.0.1:4173/?example=synthetic');
   await openDevice(page,'sample');
   await page.getByRole('spinbutton',{name:'q_x',exact:true}).fill(String(Math.sin(Math.PI/12)));
   await page.getByRole('spinbutton',{name:'q_w',exact:true}).fill(String(Math.cos(Math.PI/12)));
@@ -106,7 +106,7 @@ test('V08/V12: crystal tilt → phi scan and antiparallel alignment',async({page
 test('Device blocks: installation inheritance, separate joint values, hints and daylight layout',async({page})=>{
   await page.setViewportSize({width:1062,height:956});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:4173');
+  await page.goto('http://127.0.0.1:4173/?example=synthetic');
   expect(await page.locator('.device-card').evaluateAll(els=>els.map(el=>(el as HTMLElement).dataset.device))).toEqual(['rotary','hexapod','theta','sample','detector']);
   await page.locator('#collapse-devices').click();
   expect(await page.locator('.device-tree-row[aria-expanded=true]').count()).toBe(0);await openDevice(page,'rotary');
@@ -159,7 +159,7 @@ test('Device blocks: installation inheritance, separate joint values, hints and 
 });
 test('V09/V10/V12/V13: export → modify → compare → import/restore; invalid restore stays atomic',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:4173');
+  await page.goto('http://127.0.0.1:4173/?example=synthetic');
   await tools(page);const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'导出 JSON'}).click();
   const download=await downloadPromise,stream=await download.createReadStream(),chunks:Buffer[]=[];
   for await(const chunk of stream!)chunks.push(Buffer.from(chunk));
@@ -198,7 +198,7 @@ test('V09/V10/V12/V13: export → modify → compare → import/restore; invalid
 });
 test('Screen labels: sparse routine view, true coincidence details and explicit scientific diagnostics',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:4173');await checkLabels(page);await checkViewer(page);
+  await page.goto('http://127.0.0.1:4173/?example=synthetic');await checkLabels(page);await checkViewer(page);
   const before=await state(page);
   expect(await page.locator('.scene-label:not([hidden])').count()).toBeLessThanOrEqual(6);
   expect(await page.locator('.scene-label-entry[data-role=crystal],.scene-label-entry[data-role=lattice]').count()).toBe(0);
@@ -243,7 +243,7 @@ test('Screen labels: sparse routine view, true coincidence details and explicit 
 });
 test('Integrated XYtheta: one shared installation, a locked centered base and three internal joints',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173');
+  await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173/?example=synthetic');
   await page.locator('#collapse-devices').click();await openDevice(page,'theta');
   const card=page.locator('#device-theta'),base=card.locator('[data-integrated-base="theta"]');
   await expect(card.locator(':scope > summary')).toContainText('XYθ 一体位移台');
@@ -281,7 +281,7 @@ test('Integrated XYtheta: one shared installation, a locked centered base and th
 });
 test('Workbench: scene-first layout, motion-first tree inspector and presentation-only selection',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewportSize({width:1062,height:956});
-  await page.goto('http://127.0.0.1:4173');const original=await state(page);
+  await page.goto('http://127.0.0.1:4173/?example=synthetic');const original=await state(page);
   await expect(page.locator('#workspace-drawer')).not.toBeVisible();await expect(page.locator('#config')).not.toBeVisible();
   await expect(page.locator('#devices')).toHaveAttribute('data-selected-device','theta');expect(await page.locator('.device-card:not([hidden])').count()).toBe(1);
   await expect(page.locator('#placement-theta')).not.toHaveAttribute('open','');await expect(page.locator('[data-joint="theta.angle"]')).toBeVisible();
@@ -322,7 +322,7 @@ test('Workbench: scene-first layout, motion-first tree inspector and presentatio
 
 test('Appearance: column height is geometry-only, compact assembly and review views remain usable',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173');
+  await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173/?example=synthetic');
   const before=(await state(page)).snapshot;
   await page.locator('#camera-apparatus').click();await checkLabels(page);await checkViewer(page);
   await page.screenshot({path:'artifacts/appearance-apparatus.png',fullPage:true});
@@ -343,4 +343,49 @@ test('Appearance: column height is geometry-only, compact assembly and review vi
   await page.setViewportSize({width:390,height:844});await page.locator('#camera-apparatus').click();await page.evaluate(()=>window.scrollTo(0,0));
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await checkLabels(page);await checkViewer(page);
   await page.screenshot({path:'artifacts/appearance-mobile.png'});expect(errors).toEqual([]);
+});
+
+test('Lab heights: independent Z stage in cm, stage elevation, fixed beam and snapshot restore',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173/');
+  await expect(page.locator('#readout')).toContainText('样品中心：0, 1319.5, 0');
+  await expect(page.locator('#target-summary')).toContainText('相对光束高度 -60.5 mm');
+  await checkViewer(page);await checkLabels(page);
+  const initial=(await state(page)).snapshot;
+  await openDevice(page,'z_stage');const height=page.getByRole('spinbutton',{name:'z_stage.z / cm',exact:true});
+  await expect(height).toHaveValue('15');await expect(height).toHaveAttribute('min','10');await expect(height).toHaveAttribute('max','20');
+  await expect(page.locator('#motion-z_stage')).toContainText('可调高度10–20 cm');
+  expect(await page.locator('#devices').textContent()).not.toContain('当前高度未测');
+  await page.screenshot({path:'artifacts/lab-height-apparatus.png',fullPage:true});
+  for(const cm of [10,20]){
+    await height.fill(String(cm));await height.press('Tab');
+    const current=(await state(page)).snapshot;expect(current.experiment_state.joints['z_stage.z']).toBe(cm*10);
+    expect(current.assembly).toEqual(initial.assembly);await expect(page.locator('#readout')).toContainText('样品中心：0, '+(1169.5+cm*10)+', 0');await checkViewer(page);
+  }
+  const revision=(await state(page)).revision;await height.fill('21');await height.press('Tab');
+  await expect(height).toHaveAttribute('aria-invalid','true');expect((await state(page)).revision).toBe(revision);
+  await height.fill('15');await height.press('Tab');
+  await openDevice(page,'rotary');const elevation=page.getByRole('spinbutton',{name:'大样品台 · φ · 台面升高 / cm',exact:true});
+  await elevation.fill('6.05');await elevation.press('Tab');
+  await expect(page.locator('#target-summary')).toContainText('相对光束高度 0 mm');await checkViewer(page);
+  const raised=(await state(page)).snapshot,r=raised.assembly.frames.find((f:{id:string})=>f.id==='R');
+  expect(r.mount.position_mm[1]).toBeCloseTo(751.5,8);expect(r.motion.center_mm[1]).toBeCloseTo(751.5,8);
+  const column=raised.devices.devices.find((d:{id:string})=>d.id==='rotary').visual;
+  expect(column.size_mm[1]).toBeCloseTo(730.5,8);expect(r.mount.position_mm[1]+column.offset_mm[1]-column.size_mm[1]/2).toBeCloseTo(0,8);
+  expect(raised.assembly.beam).toEqual(initial.assembly.beam);expect(raised.assembly.frames.find((f:{id:string})=>f.id==='D')).toEqual(initial.assembly.frames.find((f:{id:string})=>f.id==='D'));
+  const raisedRevision=(await state(page)).revision;await elevation.fill('11');await elevation.press('Tab');
+  expect((await state(page)).revision).toBe(raisedRevision);await expect(elevation).toHaveAttribute('aria-invalid','true');
+  await openInstallation(page,'rotary');const installY=page.getByRole('spinbutton',{name:'大样品台 · φ · 安装 Y / mm',exact:true});
+  await installY.fill('741');await installY.press('Tab');await expect(elevation).toHaveValue('5');
+  const viaInstall=(await state(page)).snapshot,installColumn=viaInstall.devices.devices.find((d:{id:string})=>d.id==='rotary').visual;
+  expect(installColumn.size_mm[1]).toBeCloseTo(720,8);expect(741+installColumn.offset_mm[1]-installColumn.size_mm[1]/2).toBeCloseTo(0,8);
+  await elevation.fill('10');await elevation.press('Tab');
+  await joint(page,'rotary.phi',37);await expect(page.locator('#readout')).toContainText('样品中心：0, 1419.5, 0');await checkViewer(page);
+  await applyConfig(page,initial);await openDevice(page,'z_stage');await expect(page.getByRole('spinbutton',{name:'z_stage.z / cm',exact:true})).toHaveValue('15');
+  expect((await state(page)).snapshot).toEqual(initial);
+  await page.locator('#camera-sample').click();await checkLabels(page);await page.screenshot({path:'artifacts/lab-height-sample.png',fullPage:true});
+  await page.locator('#camera-all').click();await checkLabels(page);await page.screenshot({path:'artifacts/lab-height-overview.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.locator('#camera-apparatus').click();await page.evaluate(()=>window.scrollTo(0,0));await checkLabels(page);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await checkViewer(page);await page.screenshot({path:'artifacts/lab-height-mobile.png'});
+  expect(errors).toEqual([]);
 });

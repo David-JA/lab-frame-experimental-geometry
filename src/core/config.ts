@@ -37,6 +37,7 @@ export function validatedConfig(input: unknown): SceneConfig {
     f.mount.quaternion_xyzw=located('/assembly/frames/'+f.id+'/mount/quaternion_xyzw',()=>normalizeQuat(f.mount.quaternion_xyzw));
     const m=f.motion;
     if(m.kind==='revolute'){m.axis=located('/assembly/frames/'+f.id+'/motion/axis',()=>unit(m.axis));bind(m.joint,'deg');}
+    if(m.kind==='prismatic'){m.axis=located('/assembly/frames/'+f.id+'/motion/axis',()=>unit(m.axis));bind(m.joint,'mm');}
     if(m.kind==='six_dof')m.joints.forEach((id,i)=>bind(id,i<3?'mm':'deg'));
     if(m.kind==='xy_translation'){
       m.axes=located('/assembly/frames/'+f.id+'/motion/axes',()=>[unit(m.axes[0]),unit(m.axes[1])]);
@@ -68,9 +69,22 @@ export function validatedConfig(input: unknown): SceneConfig {
     requireThat(known.has(d.output_frame),'/devices/'+d.id,'Unknown output frame');
     if(d.type==='detector')requireThat(d.detector,'/devices/'+d.id+'/detector','Detector requires pixel metadata');
     const motion=frames.get(d.output_frame)?.motion;
-    const expected={rotary:'revolute',theta:'revolute',hexapod:'six_dof',xy:'xy_translation'}[d.type as 'rotary'|'theta'|'hexapod'|'xy'];
+    const expected={rotary:'revolute',theta:'revolute',hexapod:'six_dof',z_stage:'prismatic',xy:'xy_translation'}[d.type as 'rotary'|'theta'|'hexapod'|'z_stage'|'xy'];
     if(expected)requireThat(motion?.kind===expected,'/devices/'+d.id,'Device motion kind mismatch');
+    if(d.type==='z_stage'&&motion?.kind==='prismatic'){
+      const f=frames.get(d.output_frame)!;
+      const [qx,qy,qz]=f.mount.quaternion_xyzw;
+      requireThat(norm(sub(motion.axis,[0,0,1]))<1e-8&&norm(f.mount.position_mm)<1e-8&&norm([qx,qy,qz])<1e-8,'/devices/'+d.id,'Z stage requires a +Z prismatic axis and identity zero-height mount');
+    }
     if(d.type==='rotary')requireThat(frames.get(d.output_frame)?.parent==='LAB','/devices/'+d.id,'Outer rotary axis must be defined in LAB');
+    if(d.elevation){
+      const f=frames.get(d.output_frame),e=d.elevation;
+      requireThat(d.type==='rotary'&&d.visual.shape==='box'&&f?.parent==='LAB','/devices/'+d.id+'/elevation','Elevation requires a LAB-mounted rotary column');
+      const r=fromQuat(f.mount.quaternion_xyzw);
+      requireThat(f.motion.kind==='revolute'&&norm(sub(f.motion.axis,[0,1,0]))<1e-8&&norm(sub([r[1],r[5],r[9]],[0,1,0]))<1e-8,'/devices/'+d.id+'/elevation','Elevating column must retain a vertical +Y rotary axis');
+      const rise=f.mount.position_mm[1]-e.base_mount_y_mm;
+      requireThat(rise>=0&&rise<=e.travel_mm,'/devices/'+d.id+'/elevation','Elevation outside configured range');
+    }
   }
   // Moving roles may be separated by fixed mounting/shim frames, not by another motion.
   const fixedPathTo=(start:string,stop:(id:string)=>boolean):boolean=>{
@@ -86,8 +100,9 @@ export function validatedConfig(input: unknown): SceneConfig {
   for(const d of c.devices.devices){
     const f=frames.get(d.output_frame);
     if(d.type==='detector')requireThat(fixedPathTo(d.output_frame,id=>id==='LAB'),'/devices/'+d.id,'Detector must be fixed to LAB');
-    const parentRole={hexapod:'rotary',theta:'hexapod',xy:'theta'}[d.type as 'hexapod'|'theta'|'xy'];
+    const parentRole={hexapod:'rotary',z_stage:'hexapod',xy:'theta'}[d.type as 'hexapod'|'z_stage'|'xy'];
     if(parentRole)requireThat(f&&fixedPathTo(f.parent,roleAt(parentRole)),'/devices/'+d.id,'Invalid motion ancestry; expected '+parentRole+' through fixed mounts');
+    if(d.type==='theta')requireThat(f&&fixedPathTo(f.parent,id=>roleAt('hexapod')(id)||roleAt('z_stage')(id)),'/devices/'+d.id,'Theta must descend from hexapod or Z stage through fixed mounts');
     if(d.type==='sample')requireThat(fixedPathTo(d.output_frame,roleAt('xy')),'/devices/'+d.id,'Sample must be fixed to the XY output');
     if(d.integrated_into!==undefined){
       const host=devices.get(d.integrated_into),theta=host&&frames.get(host.output_frame);

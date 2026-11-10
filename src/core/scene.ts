@@ -10,6 +10,7 @@ function evaluate(c:SceneConfig) {
     const f=frames.get(id)!;let motion=identity();
     const m=f.motion;
     if(m.kind==='revolute')motion=around(m.center_mm,rotation(m.axis,j[m.joint]));
+    if(m.kind==='prismatic')motion=translation(scale(m.axis,j[m.joint]));
     if(m.kind==='six_dof'){
       const [x,y,z,u,v,w]=m.joints.map(id=>j[id]);
       const r=multiply(multiply(rotation([0,0,1],w),rotation([0,1,0],v)),rotation([1,0,0],u));
@@ -133,7 +134,7 @@ function topology(c:SceneConfig){
   const ordered=<T extends {id:string}>(items:T[])=>[...items].sort((a,b)=>a.id.localeCompare(b.id));
   return {
     devices:ordered(c.devices.devices).map(d=>({id:d.id,type:d.type,output_frame:d.output_frame,crystal_frame:d.crystal?.frame})),
-    frames:ordered(c.assembly.frames).map(f=>({id:f.id,parent:f.parent,kind:f.motion.kind,joints:f.motion.kind==='revolute'?[f.motion.joint]:'joints' in f.motion?f.motion.joints:[]})),
+    frames:ordered(c.assembly.frames).map(f=>({id:f.id,parent:f.parent,kind:f.motion.kind,joints:'joint' in f.motion?[f.motion.joint]:'joints' in f.motion?f.motion.joints:[]})),
     joints:ordered(c.assembly.joints).map(j=>({id:j.id,unit:j.unit})),samples:Object.keys(c.experiment_state.samples).sort()
   };
 }

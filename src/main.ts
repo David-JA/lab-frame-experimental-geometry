@@ -1,5 +1,5 @@
 import { load_scene, SceneError, type Scene } from './core';
-import { example_config } from './example';
+import { example_config, lab_height_config } from './example';
 import { GeometryViewer } from './viewer/viewer';
 import { DeviceControls } from './ui/device-controls';
 import './style.css';
@@ -11,10 +11,10 @@ document.querySelector('#app')!.innerHTML=`
 <div class="key-readings" aria-label="关键几何读数"><div><span>带轴误差</span><strong id="key-alignment">—</strong></div><div><span>目标点 → φ 轴</span><strong id="key-phi">—</strong></div><div><span>样品中心 → θ 轴</span><strong id="key-theta">—</strong></div><button id="open-details">读数详情</button><p id="target-summary"></p></div><div class="workspace-status"><span id="status" role="status"></span><span class="navigation-hint">拖动旋转 · 滚轮缩放 · 右键平移</span></div></section></main>
 <dialog id="workspace-drawer" class="workspace-drawer" aria-labelledby="drawer-title"><div class="drawer-heading"><h2 id="drawer-title">工作区工具</h2><button id="close-drawer" aria-label="关闭工具抽屉">关闭</button></div><div class="drawer-tabs" role="tablist" aria-label="工具分类"><button role="tab" id="tab-config" aria-controls="panel-config">配置</button><button role="tab" id="tab-details" aria-controls="panel-details">读数与诊断</button><button role="tab" id="tab-coincident" aria-controls="panel-coincident">共点详情</button></div>
 <p id="drawer-status" class="small" aria-live="polite"></p><section id="panel-config" role="tabpanel" aria-labelledby="tab-config"><h3>实验配置</h3><div class="actions"><button id="export">导出 JSON</button><label class="file">导入文件<input id="file" type="file" accept=".json,application/json"></label></div><textarea id="config" aria-label="场景 snapshot JSON" spellcheck="false"></textarea><div class="actions"><button id="show-current">读取当前配置</button><button id="compare">与当前状态比较</button><button id="restore">恢复 / 应用 JSON</button></div><pre id="comparison" class="readout">导入或编辑 JSON 后可先比较；比较不会移动设备。</pre><section class="reset-section"><h3>恢复示例配置</h3><p class="small">以下操作改变装配与运动状态，不是恢复相机视角。</p><button id="reset">恢复默认示例</button></section><p class="small">示例不是实物标定。视觉杆不参与机构求解，未配置行程不代表硬件运动许可。</p></section>
-<section id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden><h3>空间与晶体读数</h3><pre id="readout" class="readout coords"></pre><h3>坐标诊断图层</h3><label class="check"><input id="drawer-diagnostics" type="checkbox">显示坐标诊断</label><div id="display"></div><p class="small">诊断关闭时，仅显示任务相关标注与当前选择；这些观察选项不修改物理状态。C 正交轴与晶格方向是不同的表示。</p><div id="axis-legend" class="small"><span class="phi-key">φ 轴</span> · <span class="theta-key">θ 轴</span> · <span class="beam-key">beam +Z</span></div><p id="direction-legend" class="small">XYZ 红/绿/蓝 · C 实线 / 晶格虚线 · 目标品红 · pivot 灰色空心。共点不代表同向。</p><details class="info-card"><summary>运动继承与渲染检查</summary><pre class="readout">LAB → φ → H0 → H1 → θ → XY → S → C\nLAB → Detector / Beam</pre><div id="diagnostics"></div></details><p class="small"><a href="https://github.com/David-JA/obsidian/issues/38" target="_blank" rel="noreferrer">需求与验收 · Obsidian #38</a></p></section>
+<section id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden><h3>空间与晶体读数</h3><pre id="readout" class="readout coords"></pre><h3>坐标诊断图层</h3><label class="check"><input id="drawer-diagnostics" type="checkbox">显示坐标诊断</label><div id="display"></div><p class="small">诊断关闭时，仅显示任务相关标注与当前选择；这些观察选项不修改物理状态。C 正交轴与晶格方向是不同的表示。</p><div id="axis-legend" class="small"><span class="phi-key">φ 轴</span> · <span class="theta-key">θ 轴</span> · <span class="beam-key">beam +Z</span></div><p id="direction-legend" class="small">XYZ 红/绿/蓝 · C 实线 / 晶格虚线 · 目标品红 · pivot 灰色空心。共点不代表同向。</p><details class="info-card"><summary>运动继承与渲染检查</summary><pre id="inheritance" class="readout"></pre><div id="diagnostics"></div></details><p class="small"><a href="https://github.com/David-JA/obsidian/issues/38" target="_blank" rel="noreferrer">需求与验收 · Obsidian #38</a></p></section>
 <section id="panel-coincident" role="tabpanel" aria-labelledby="tab-coincident" hidden><h3>真实三维共点</h3><p class="small">仅合并三维位置相同的锚点，不把屏幕投影重叠视为共点，也不表示各坐标轴同向。</p><div id="coincident-details">点击场景中的共点标记查看成员与坐标方向。</div></section></dialog>`;
 const byId=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
-let scene:Scene=load_scene(example_config()),viewer:GeometryViewer|undefined;
+let scene:Scene=load_scene(new URLSearchParams(location.search).get('example')==='synthetic'?example_config():lab_height_config()),viewer:GeometryViewer|undefined;
 let deviceControls:DeviceControls,diagnosticView=false;
 try{viewer=new GeometryViewer(byId('viewport'),{onSelect:id=>deviceControls?.select(id),onInspectCoincident:position=>showCoincident(position)});}catch(error){byId('viewport').textContent='无法初始化 WebGL，数值查询仍可用。'+String(error);}
 const fmt=(n:number)=>Math.abs(n)<1e-9?'0':Number(n.toFixed(6)).toString();
@@ -37,15 +37,18 @@ function buildControls(){
 function render(){
   const c=scene.save_state();viewer?.update(scene);viewer?.set_view({selectedDeviceId:deviceControls.selectedId,diagnostics:diagnosticView});
   deviceControls.refresh();
+  byId('inheritance').textContent=c.assembly.frames.map(f=>f.parent+' → '+f.id+' · '+f.motion.kind).concat(c.devices.devices.filter(d=>d.crystal).map(d=>d.output_frame+' → '+d.crystal!.frame+' · R_SC'),'LAB → Beam').join('\n');
   byId('selected-caption').textContent='当前：'+byId('selected-device-name').textContent;
-  byId('model-identity').textContent=(c.devices.devices.some(d=>d.provenance==='synthetic')?'合成配置':'来源配置')+' · 未实物标定';
+  byId('model-identity').textContent=(c.assembly.description?'粗测与示意配置':c.devices.devices.some(d=>d.provenance==='synthetic')?'合成配置':'来源配置')+' · 未实物标定';
   for(const id of ['key-alignment','key-phi','key-theta'])byId(id).textContent='—';byId('target-summary').textContent='';
   const sample=c.devices.devices.find(d=>d.crystal),rotary=c.devices.devices.find(d=>d.type==='rotary'),theta=c.devices.devices.find(d=>d.type==='theta'),hex=c.devices.devices.find(d=>d.type==='hexapod');
   const lines=['LAB：位置 mm / 角度 deg','revision: '+scene.revision];
+  if(c.assembly.description)lines.push(c.assembly.description);
   if(sample){
     const s=c.experiment_state.samples[sample.id],center=scene.get_sample_point(sample.id,'center'),target=scene.get_sample_point(sample.id,'target'),d=scene.get_crystal_direction(sample.id,s.target_indices,s.direction_type).vector;
     lines.push('样品中心：'+xyz(center.position),'目标点：'+xyz(target.position),'有向目标：'+xyz(d));
-    byId('target-summary').textContent=(s.direction_type==='direct'?'目标晶向 ['+s.target_indices.join(' ')+']':'目标法向 ('+s.target_indices.join(' ')+')')+' → LAB 单位方向 ('+xyz(d)+')';
+    lines.push('目标点相对光束高度：'+fmt(target.position[1]-c.assembly.beam.point_mm[1])+' mm');
+    byId('target-summary').textContent=(s.direction_type==='direct'?'目标晶向 ['+s.target_indices.join(' ')+']':'目标法向 ('+s.target_indices.join(' ')+')')+' → LAB 单位方向 ('+xyz(d)+')'+(c.assembly.description?' · 目标点相对光束高度 '+fmt(target.position[1]-c.assembly.beam.point_mm[1])+' mm':'');
     if(rotary){
       const distance=scene.get_point_to_axis_distance({frame:'LAB',position_mm:target.position},scene.get_axis(rotary.id)).distance_mm;
       lines.push('目标点到 φ 轴：'+fmt(distance)+' mm');byId('key-phi').textContent=fmt(distance)+' mm';
@@ -95,7 +98,9 @@ byId('compare').onclick=()=>{
   catch(error){fail(error);}
 };
 byId('restore').onclick=()=>change(()=>{scene.restore_state(JSON.parse(editor.value));buildControls();});
-byId('reset').onclick=()=>change(()=>{scene.restore_state(example_config());buildControls();editor.value=JSON.stringify(scene.save_state(),null,2);byId('comparison').textContent='已恢复默认合成示例。';});
+byId('reset').onclick=()=>change(()=>{scene.restore_state(lab_height_config());buildControls();editor.value=JSON.stringify(scene.save_state(),null,2);byId('comparison').textContent='已恢复实验室粗测高度配置。';});
+const syntheticReset=document.createElement('button');syntheticReset.id='reset-synthetic';syntheticReset.textContent='恢复合成示例';byId('reset').textContent='恢复实验室高度配置';byId('reset').after(syntheticReset);
+syntheticReset.onclick=()=>change(()=>{scene.restore_state(example_config());buildControls();editor.value=JSON.stringify(scene.save_state(),null,2);byId('comparison').textContent='已恢复合成示例。';});
 byId<HTMLInputElement>('file').onchange=async e=>{
   try{const file=(e.target as HTMLInputElement).files?.[0];if(file){editor.value=await file.text();status('已读取文件，尚未应用；可比较或恢复。');}}catch(error){fail(error);}
 };

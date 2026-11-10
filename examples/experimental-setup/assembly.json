@@ -58,7 +58,7 @@
       "mount": {
         "position_mm": [
           0,
-          100,
+          142.5,
           0
         ],
         "quaternion_xyzw": [
@@ -92,7 +92,7 @@
       "mount": {
         "position_mm": [
           0,
-          100,
+          57.5,
           0
         ],
         "quaternion_xyzw": [
@@ -274,47 +274,89 @@
       "base_frame": "H0",
       "moving_frame": "H1",
       "base_point_mm": [
-        90,
-        0,
-        0
+        100.0,
+        6,
+        0.0
       ],
       "moving_point_mm": [
-        70,
-        0,
-        0
+        65.778483,
+        -6,
+        23.94141
       ]
     },
     {
       "base_frame": "H0",
       "moving_frame": "H1",
       "base_point_mm": [
-        -44.99999999999998,
-        0,
-        77.94228634059948
+        50.0,
+        6,
+        86.60254
       ],
       "moving_point_mm": [
-        -34.999999999999986,
-        0,
-        60.62177826491071
+        53.623111,
+        -6,
+        44.995133
       ]
     },
     {
       "base_frame": "H0",
       "moving_frame": "H1",
       "base_point_mm": [
-        -45.00000000000004,
-        0,
-        -77.94228634059945
+        -50.0,
+        6,
+        86.60254
       ],
       "moving_point_mm": [
-        -35.00000000000003,
-        0,
-        -60.62177826491069
+        -53.623111,
+        -6,
+        44.995133
+      ]
+    },
+    {
+      "base_frame": "H0",
+      "moving_frame": "H1",
+      "base_point_mm": [
+        -100.0,
+        6,
+        0.0
+      ],
+      "moving_point_mm": [
+        -65.778483,
+        -6,
+        23.94141
+      ]
+    },
+    {
+      "base_frame": "H0",
+      "moving_frame": "H1",
+      "base_point_mm": [
+        -50.0,
+        6,
+        -86.60254
+      ],
+      "moving_point_mm": [
+        -12.155372,
+        -6,
+        -68.936543
+      ]
+    },
+    {
+      "base_frame": "H0",
+      "moving_frame": "H1",
+      "base_point_mm": [
+        50.0,
+        6,
+        -86.60254
+      ],
+      "moving_point_mm": [
+        12.155372,
+        -6,
+        -68.936543
       ]
     }
   ],
   "alignment_tolerance": {
-    "angle_deg": 0.000001,
-    "distance_mm": 0.000001
+    "angle_deg": 1e-06,
+    "distance_mm": 1e-06
   }
 }

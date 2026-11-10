@@ -6,14 +6,18 @@
       "type": "rotary",
       "output_frame": "R",
       "visual": {
-        "shape": "cylinder",
+        "shape": "box",
         "size_mm": [
+          190,
           180,
-          30,
-          180
+          190
         ],
-        "color": "#627d98",
-        "offset_mm": [0,-15,0]
+        "color": "#F8E68A",
+        "offset_mm": [
+          0,
+          -108,
+          0
+        ]
       },
       "provenance": "synthetic"
     },
@@ -22,13 +26,13 @@
       "type": "hexapod",
       "output_frame": "H1",
       "visual": {
-        "shape": "plate",
+        "shape": "cylinder",
         "size_mm": [
           240,
           12,
           240
         ],
-        "color": "#9bb6c9"
+        "color": "#BEC7CF"
       },
       "provenance": "synthetic"
     },
@@ -43,8 +47,12 @@
           90,
           12
         ],
-        "color": "#d0a868",
-        "offset_mm": [0,0,-40]
+        "color": "#96A3AF",
+        "offset_mm": [
+          0,
+          0,
+          -33.5
+        ]
       },
       "provenance": "synthetic"
     },
@@ -60,8 +68,12 @@
           80,
           10
         ],
-        "color": "#b2bcc9",
-        "offset_mm": [0,0,-25]
+        "color": "#D8DFE5",
+        "offset_mm": [
+          0,
+          0,
+          -22.5
+        ]
       },
       "provenance": "synthetic"
     },
@@ -76,7 +88,7 @@
           15,
           35
         ],
-        "color": "#e89c65"
+        "color": "#B58B70"
       },
       "provenance": "synthetic",
       "crystal": {
@@ -112,7 +124,7 @@
           460,
           20
         ],
-        "color": "#607a8a"
+        "color": "#71869A"
       },
       "provenance": "synthetic",
       "detector": {

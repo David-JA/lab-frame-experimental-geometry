@@ -319,3 +319,28 @@ test('Workbench: scene-first layout, motion-first tree inspector and presentatio
   await page.locator('[data-joint="xy.y"]').scrollIntoViewIfNeeded();await expect(page.locator('#viewport canvas')).toBeInViewport();
   await checkViewer(page);expect(errors).toEqual([]);
 });
+
+test('Appearance: column height is geometry-only, compact assembly and review views remain usable',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173');
+  const before=(await state(page)).snapshot;
+  await page.locator('#camera-apparatus').click();await checkLabels(page);await checkViewer(page);
+  await page.screenshot({path:'artifacts/appearance-apparatus.png',fullPage:true});
+  await openInstallation(page,'rotary');
+  const height=page.getByRole('spinbutton',{name:'大样品台 · φ · 柱体高度 / mm',exact:true});await expect(height).toHaveValue('180');
+  await height.fill('250');await height.press('Tab');
+  const after=(await state(page)).snapshot,visual=after.devices.devices.find((d:{id:string})=>d.id==='rotary').visual;
+  expect(visual.size_mm).toEqual([190,250,190]);expect(visual.offset_mm).toEqual([0,-143,0]);expect(visual.color).toBe('#F8E68A');
+  expect(after.assembly).toEqual(before.assembly);expect(after.experiment_state).toEqual(before.experiment_state);
+  await expect(page.locator('#readout')).toContainText('样品中心：0, 200, 0');await checkViewer(page);
+  await page.locator('#camera-apparatus').click();await page.screenshot({path:'artifacts/appearance-height-250.png',fullPage:true});
+  const savedRevision=(await state(page)).revision;await height.fill('0');await height.press('Tab');
+  expect((await state(page)).revision).toBe(savedRevision);await expect(height).toHaveAttribute('aria-invalid','true');
+  await applyConfig(page,before);await openInstallation(page,'rotary');await expect(page.getByRole('spinbutton',{name:'大样品台 · φ · 柱体高度 / mm',exact:true})).toHaveValue('180');
+  await page.locator('#camera-all').click();await checkLabels(page);await page.screenshot({path:'artifacts/appearance-overview.png',fullPage:true});
+  await openDevice(page,'theta');await page.locator('#camera-sample').click();await checkLabels(page);
+  await page.screenshot({path:'artifacts/appearance-sample.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.locator('#camera-apparatus').click();await page.evaluate(()=>window.scrollTo(0,0));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await checkLabels(page);await checkViewer(page);
+  await page.screenshot({path:'artifacts/appearance-mobile.png'});expect(errors).toEqual([]);
+});

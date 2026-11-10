@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Group, Mesh, PerspectiveCamera, Vector3 } from 'three';
+import { Box3, Group, Mesh, PerspectiveCamera, Vector3 } from 'three';
 import { groupSceneLabels, labelPresentation, overlaps, placeLabels, SceneLabels, type LabelAnchor, type SceneLabel } from '../src/viewer/scene-labels';
 import { viewPolicy } from '../src/viewer/view-policy';
 import { GeometryViewer } from '../src/viewer/viewer';
@@ -179,6 +179,29 @@ describe('viewer display integration',()=>{
     vi.stubGlobal('ResizeObserver',class {observe(){}disconnect(){}});
   });
   afterEach(()=>{viewer?.dispose();viewer=undefined;vi.unstubAllGlobals();});
+  it('keeps compact metal discs, adapter plates and the column attached to their actual frames',()=>{
+    const geometry=load_scene(example_config());viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(geometry);
+    const bodies:Mesh[]=[];viewer.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId)bodies.push(o);});
+    const part=(id:string,name='body')=>bodies.find(o=>o.userData.deviceId===id&&o.userData.bodyPart===name)!;
+    const bounds=(id:string,name='body')=>new Box3().setFromObject(part(id,name));
+    expect(part('hexapod','upper-disc').geometry.type).toBe('CylinderGeometry');
+    expect(part('hexapod','lower-disc').geometry.type).toBe('CylinderGeometry');
+    expect(bounds('hexapod','upper-disc').getSize(new Vector3()).x).toBeCloseTo(180,8);
+    expect(bounds('hexapod','lower-disc').getSize(new Vector3()).x).toBeCloseTo(240,8);
+    for(const name of ['upper-adapter','lower-adapter'])expect(part('hexapod',name).geometry.type).toBe('BoxGeometry');
+    expect(part('hexapod','upper-adapter').parent!.name).toBe('H1');expect(part('hexapod','lower-adapter').parent!.name).toBe('H0');
+    expect(bounds('rotary').max.y).toBeCloseTo(bounds('hexapod','lower-adapter').min.y,8);
+    expect(bounds('hexapod','lower-adapter').max.y).toBeCloseTo(bounds('hexapod','lower-disc').min.y,8);
+    expect(bounds('hexapod','upper-disc').max.y).toBeCloseTo(bounds('hexapod','upper-adapter').min.y,8);
+    expect(bounds('hexapod','upper-adapter').max.y).toBeCloseTo(bounds('theta').min.y,8);
+    expect(bounds('theta').max.y).toBeCloseTo(bounds('xy').min.y,8);expect(bounds('xy').max.y).toBeCloseTo(bounds('sample').min.y,8);
+    viewer.set_view({selectedDeviceId:'rotary'});expect((part('rotary').material as any).color.getHexString()).toBe('f8e68a');
+    geometry.set_platform_pose('hexapod',{translation_mm:[2,3,4],rotation_deg:[0,0,90]});viewer.update(geometry);
+    const upper=new Vector3().setFromMatrixPosition(part('hexapod','upper-adapter').matrixWorld);
+    expect(upper.x).toBeCloseTo(47.5,8);expect(upper.y).toBeCloseTo(203,8);expect(upper.z).toBeCloseTo(4,8);
+    expect(new Vector3().setFromMatrixPosition(part('hexapod','lower-adapter').matrixWorld).toArray()).toEqual([0,-12,0]);
+    expect(geometry.save_state().assembly.supports).toHaveLength(6);
+  });
   it('remembers the selected label placement across real camera projection updates',()=>{
     const labels=new SceneLabels(host as unknown as HTMLElement),camera=new PerspectiveCamera(42,host.clientWidth/host.clientHeight,1,10000);
     labels.set([label('当前装置',undefined,undefined,{emphasis:'selected',priority:6})],0);
@@ -211,7 +234,7 @@ describe('viewer display integration',()=>{
     expect(host.querySelectorAll('.scene-label').some(el=>JSON.parse(el.dataset.members).some((entry:{text:string})=>entry.text==='P1'))).toBe(true);
     viewer.set_view({selectedDeviceId:'hexapod',diagnostics:true});
     const bodies:Mesh[]=[];viewer.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId)bodies.push(o);});
-    expect(bodies.filter(o=>o.userData.selection==='selected').map(o=>o.userData.deviceId)).toEqual(['hexapod','hexapod']);
+    expect(bodies.filter(o=>o.userData.selection==='selected').map(o=>o.userData.bodyPart).sort()).toEqual(['lower-adapter','lower-disc','upper-adapter','upper-disc']);
     expect(host.querySelectorAll('.scene-label').map(el=>el.textContent).join(' ')).toContain('C X');
     expect(host.querySelectorAll('.scene-label').map(el=>el.textContent).join(' ')).toContain('[100]');
     viewer.set_view({diagnostics:false});expect(viewer.diagnostics().selected_device_id).toBe('hexapod');

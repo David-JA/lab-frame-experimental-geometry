@@ -21,7 +21,7 @@ describe('independent kinematics (V01–V05, V07, V11)',()=>{
   it('V01: configured zero installation and +Y rotation sign',()=>{
     const s=load_scene(example_config());
     close(s.get_world_position('sample').position,[0,200,0]);
-    close(s.get_world_position('hexapod').position,[0,100,0]);
+    close(s.get_world_position('hexapod').position,[0,142.5,0]);
     s.set_joint_value('rotary.phi',90);
     close(apply(s.get_world_transform('rotary').matrix,[1,0,0]),[0,0,-1]);
     close(s.get_world_position('sample').position,[0,200,0]);
@@ -38,6 +38,8 @@ describe('independent kinematics (V01–V05, V07, V11)',()=>{
   it('V03: nonzero pivot translation and T0 are not omitted',()=>{
     const c=example_config(),m=frame(c,'H1').motion;
     if(m.kind!=='six_dof')throw Error();
+    // This analytic fixture intentionally uses T0=Trans(0,100,0), independent of the compact visual example.
+    frame(c,'H1').mount.position_mm=[0,100,0];
     m.pivot_mm=[0,150,0];const s=load_scene(c);
     s.set_platform_pose('hexapod',{translation_mm:[0,0,0],rotation_deg:[0,0,90]});
     close(s.get_world_position('hexapod').position,[50,150,0]);

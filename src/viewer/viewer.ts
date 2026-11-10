@@ -26,6 +26,7 @@ export class GeometryViewer {
   #sampleFocus:Vec3=[0,200,0];#sampleRadius=100;
   #labels:SceneLabels;#labelEntries:SceneLabel[]=[];
   #observer:ResizeObserver;
+  #grid:THREE.GridHelper;
   constructor(private container:HTMLElement,private callbacks:ViewerCallbacks={}){
     this.scene.background=new THREE.Color('#edf0f2');
     this.renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
@@ -39,9 +40,10 @@ export class GeometryViewer {
     canvas.addEventListener('pointermove',this.#onPointerMove);
     canvas.addEventListener('pointerup',this.#onPointerUp);
     canvas.addEventListener('pointercancel',this.#onPointerCancel);
-    this.scene.add(new THREE.HemisphereLight(0xe6edf2,0x59616b,2.4));
+    this.scene.add(new THREE.HemisphereLight(0xf3f6fa,0xb3bac0,2.4));
+    this.scene.add(new THREE.AmbientLight(0xffffff,.55));
     const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(500,1000,500);this.scene.add(light);
-    const grid=new THREE.GridHelper(1800,18,0xc1c9cf,0xd7dde1);grid.position.y=-30;
+    const grid=this.#grid=new THREE.GridHelper(1800,18,0xc1c9cf,0xd7dde1);grid.position.y=-30;
     grid.material.transparent=true;grid.material.opacity=.5;this.scene.add(grid);
     this.scene.add(this.#root,this.#dynamic);this.reset_camera();
     this.#observer=new ResizeObserver(()=>this.resize());this.#observer.observe(container);this.resize();
@@ -94,6 +96,12 @@ export class GeometryViewer {
     else{const sphere=box.getBoundingSphere(new THREE.Sphere());this.#fitCamera(sphere.center,sphere.radius);}
   }
   focus_sample(){this.#fitCamera(vector(this.#sampleFocus),this.#sampleRadius);this.#labels.render(this.camera);}
+  focus_apparatus(){
+    const detectors=new Set(this.#config?.devices.devices.filter(d=>d.type==='detector').map(d=>d.id));
+    const box=this.#bodyBounds(body=>!detectors.has(body.id));
+    if(box.isEmpty())return;
+    const sphere=box.getBoundingSphere(new THREE.Sphere());this.#fitCamera(sphere.center,sphere.radius);this.#labels.render(this.camera);
+  }
   resize(){const w=this.container.clientWidth,h=this.container.clientHeight;this.camera.aspect=w/Math.max(h,1);this.camera.updateProjectionMatrix();this.renderer.setSize(w,h,false);}
   #clear(group:THREE.Group){
     group.traverse(o=>{
@@ -112,40 +120,48 @@ export class GeometryViewer {
     for(const body of this.#bodies){
       const selected=body.id===this.#policy?.selected?.id;
       body.mesh.material.color.copy(body.color);
-      if(selected)body.mesh.material.color.lerp(new THREE.Color(0x7597a8),.22);
-      body.mesh.material.emissive.setHex(selected?0x426576:0x000000);body.mesh.material.emissiveIntensity=selected?.16:0;
+      body.mesh.material.emissive.setHex(selected?0x18384f:0x000000);body.mesh.material.emissiveIntensity=selected?.06:0;
       body.edges.color.setHex(selected?0x155b91:0x647683);body.edges.opacity=selected?1:.24;
       body.mesh.userData.selection=selected?'selected':'none';
     }
   }
   #body(d:Device){
-    const [x,y,z]=d.visual.size_mm;let geometry:THREE.BufferGeometry;
+    const [x,y,z]=d.visual.size_mm;
+    const metal=d.type==='hexapod'||d.type==='theta'||d.type==='xy';
+    const material=new THREE.MeshStandardMaterial({color:d.visual.color,metalness:metal?.4:d.type==='rotary'?.02:.12,roughness:metal?.28:.7});
+    const register=(frame:string,geometry:THREE.BufferGeometry,mat:THREE.MeshStandardMaterial,position:Vec3,part:string)=>{
+      const mesh=new THREE.Mesh(geometry,mat);mesh.position.copy(vector(position));
+      const edges=new THREE.LineBasicMaterial({color:0x4b545b,transparent:true,opacity:.24});
+      mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry,12),edges));mesh.userData.deviceId=d.id;mesh.userData.bodyPart=part;
+      this.#groups.get(frame)!.add(mesh);this.#bodies.push({id:d.id,mesh,color:mat.color.clone(),edges});return mesh;
+    };
+    if(d.type==='hexapod'&&d.visual.shape==='cylinder'){
+      const f=this.#config!.assembly.frames.find(f=>f.id===d.output_frame)!,offset=d.visual.offset_mm??[0,0,0];
+      const disc=(scale:number)=>new THREE.CylinderGeometry(.5,.5,1,64).scale(x*scale,y,z*scale);
+      const black=new THREE.MeshStandardMaterial({color:0x20252b,metalness:.3,roughness:.62});
+      register(d.output_frame,disc(.75),material,offset,'upper-disc');
+      register(f.parent,disc(1),material.clone(),[0,0,0],'lower-disc');
+      register(d.output_frame,new THREE.BoxGeometry(x*.85,y,z*.85),black,[offset[0],offset[1]+y,offset[2]],'upper-adapter');
+      register(f.parent,new THREE.BoxGeometry(x*1.08,y,z*1.08),black.clone(),[0,-y,0],'lower-adapter');
+      return;
+    }
+    let geometry:THREE.BufferGeometry;
     if(d.visual.shape==='cylinder'){
       const vertical=d.type==='rotary';geometry=new THREE.CylinderGeometry(.5,.5,1,32);
       if(!vertical)geometry.rotateX(Math.PI/2);
       geometry.scale(x,y,z);
     }else geometry=new THREE.BoxGeometry(x,y,z);
-    const bodyColors:Partial<Record<Device['type'],number>>={hexapod:0xbcc5cc,rotary:0x8596a2,theta:0xaab3ba,xy:0xc3cbd0,sample:0xb58b70,detector:0x788d9b};
-    const material=new THREE.MeshStandardMaterial({color:bodyColors[d.type]??d.visual.color,metalness:.12,roughness:.78,transparent:d.type==='detector',opacity:d.type==='detector'?.26:1});
-    const register=(mesh:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>)=>{
-      const edges=new THREE.LineBasicMaterial({color:0x647683,transparent:true,opacity:.24});
-      mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry),edges));mesh.userData.deviceId=d.id;
-      this.#bodies.push({id:d.id,mesh,color:mesh.material.color.clone(),edges});
-    };
-    const mesh=new THREE.Mesh(geometry,material);mesh.position.copy(vector(d.visual.offset_mm??[0,0,0]));
-    if(d.type==='detector')mesh.position.z+=z/2;
-    this.#groups.get(d.output_frame)!.add(mesh);register(mesh);
+    const position=[...(d.visual.offset_mm??[0,0,0])] as Vec3;if(d.type==='detector')position[2]+=z/2;
+    register(d.output_frame,geometry,material,position,'body');
     if(d.detector){
       const [nu,nv]=d.detector.pixels,[px,py]=d.detector.pixel_size_mm;
-      const active=new THREE.Mesh(new THREE.PlaneGeometry(nu*px,nv*py),new THREE.MeshBasicMaterial({color:0x79cadd,side:THREE.DoubleSide,transparent:true,opacity:.2,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
+      const active=new THREE.Mesh(new THREE.PlaneGeometry(nu*px,nv*py),new THREE.MeshBasicMaterial({color:0x293743,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
       this.#groups.get(d.output_frame)!.add(active);
       this.#activePanels.push({id:d.id,mesh:active,width:nu*px,height:nv*py});
     }
     if(d.type==='hexapod'){
       const f=this.#config!.assembly.frames.find(f=>f.id===d.output_frame)!;
-      const fixedMaterial=material.clone();fixedMaterial.color.setHex(0x7c8994);
-      const fixed=new THREE.Mesh(new THREE.BoxGeometry(x,y,z),fixedMaterial);
-      this.#groups.get(f.parent)!.add(fixed);register(fixed);
+      register(f.parent,new THREE.BoxGeometry(x,y,z),material.clone(),[0,0,0],'lower-plate');
     }
   }
   #rebuild(c:SceneConfig){
@@ -166,9 +182,9 @@ export class GeometryViewer {
     }
     c.devices.devices.forEach(d=>this.#body(d));
   }
-  #line(a:Vec3,b:Vec3,color:number,radius=1.5){
+  #line(a:Vec3,b:Vec3,color:number,radius=1.5,metallic=false){
     const delta=vector(b).sub(vector(a)),length=delta.length();
-    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,1,10),new THREE.MeshBasicMaterial({color}));
+    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,1,16),metallic?new THREE.MeshStandardMaterial({color,metalness:.72,roughness:.3}):new THREE.MeshBasicMaterial({color}));
     mesh.position.copy(vector(a).add(vector(b)).multiplyScalar(.5));mesh.scale.y=length;
     if(length>1e-12)mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
     this.#dynamic.add(mesh);return mesh;
@@ -220,7 +236,7 @@ export class GeometryViewer {
     this.#rodError=0;this.#crystalOriginError=0;
     for(const s of c.assembly.supports){
       const a=point(geometry.get_frame_transform('LAB',s.base_frame).matrix,s.base_point_mm),b=point(geometry.get_frame_transform('LAB',s.moving_frame).matrix,s.moving_point_mm);
-      const rod=this.#line(a,b,0xc0c8d0,3);rod.updateMatrixWorld(true);
+      const rod=this.#line(a,b,0xb9c3cc,4.5,true);rod.updateMatrixWorld(true);
       this.#rodError=Math.max(this.#rodError,new THREE.Vector3(0,-.5,0).applyMatrix4(rod.matrixWorld).distanceTo(vector(a)),new THREE.Vector3(0,.5,0).applyMatrix4(rod.matrixWorld).distanceTo(vector(b)));
     }
     let primaryTargetTip:THREE.Vector3|undefined;
@@ -277,6 +293,7 @@ export class GeometryViewer {
       for(const p of [[0,0,0],[-panel.width/2,panel.height/2,0],[panel.width/2,-panel.height/2,0]] as Vec3[])
         this.#detectorError=Math.max(this.#detectorError,vector(p).applyMatrix4(panel.mesh.matrixWorld).distanceTo(vector(point(t,p))));
     }
+    const floor=this.#bodyBounds();if(!floor.isEmpty())this.#grid.position.y=floor.min.y-2;
     if(this.#revision<0)this.reset_camera();
     this.#labels.set(this.#labelEntries,geometry.revision,{diagnostics});this.#labels.render(this.camera);
     this.#revision=geometry.revision;

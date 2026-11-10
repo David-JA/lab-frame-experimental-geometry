@@ -61,7 +61,8 @@ export class DeviceControls {
       const row=document.createElement('button');row.type='button';row.className='device-tree-row';row.dataset.device=d.id;
       row.setAttribute('role','treeitem');row.setAttribute('aria-level',String(depth(d)+1));row.setAttribute('aria-selected','false');row.tabIndex=-1;
       const toggle=document.createElement('span');toggle.className='tree-toggle';toggle.setAttribute('aria-hidden','true');
-      const label=document.createElement('span');label.textContent=deviceName(d);row.append(toggle,label);item.append(row);
+      const swatch=document.createElement('span');swatch.className='device-color';swatch.style.backgroundColor=d.visual.color;swatch.setAttribute('aria-hidden','true');
+      const label=document.createElement('span');label.textContent=deviceName(d);row.append(toggle,swatch,label);item.append(row);
       (parent?branches.get(parent.id)!:tree).append(item);
       const children=devices.filter(x=>!x.integrated_into&&visibleParent(x)?.id===d.id);
       if(children.length){
@@ -114,6 +115,15 @@ export class DeviceControls {
         if(a.motion.kind==='six_dof')a.motion.pivot_mm[i]+=delta;
         scene.restore_state(next);
       });
+      if(d.type==='rotary'&&d.visual.shape==='box'){
+        const appearance=detail('appearance-'+d.id,'柱体外观 · mm',placement,true,'sub-block');
+        text('p','高度只改变柱体外观，柱顶安装面保持不变。整体升降请使用上方安装 Y；不新增运动轴。',appearance,'small');
+        number('高度 / mm',deviceName(d)+' · 柱体高度 / mm',()=>scene.save_state().devices.devices.find(x=>x.id===d.id)!.visual.size_mm[1],appearance,value=>{
+          const next=scene.save_state(),visual=next.devices.devices.find(x=>x.id===d.id)!.visual;
+          const offset=visual.offset_mm??[0,0,0],top=offset[1]+visual.size_mm[1]/2;
+          visual.size_mm[1]=value;visual.offset_mm=[offset[0],top-value/2,offset[2]];scene.restore_state(next);
+        });
+      }
       if(members.length>1){
         text('p','XY 基座固定在 θ 旋转中心，无独立安装位移或安装转角；X/Y 是一体台内部行程。',placement,'small');
         const baseInfo=text('p','',placement,'position-info');baseInfo.dataset.integratedBase=d.id;
@@ -173,6 +183,7 @@ export class DeviceControls {
       describe('联动范围',motionImpact+'。'+(f.motion.kind==='fixed'?'':'关节运动不改写安装参数。'));
       describe('安装位置','安装坐标以 '+anchor.parent+' 为准。调整时平移'+(installationImpact===motionImpact?'上述装配':installationImpact)+'，保留关节读数及内部相对装配；其他独立分支和入射光束不变。');
       if(d.crystal)describe('样品与晶体',d.crystal.frame+' 原点与 '+d.output_frame+' 原点重合；样品中心与目标点分别定义在 '+d.output_frame+' 中，位置可通过配置修改。');
+      if(d.type==='hexapod'&&d.visual.shape==='cylinder')describe('外观示意','银色圆盘和黑色转接板属于同一六轴组件：上部随 '+d.output_frame+'，下部随 '+f.parent+'。支杆只连接配置端点，不参与机构求解。');
       body.append(description);
     }
     const preferred=options.selectedId&&this.#aliases.has(options.selectedId)?options.selectedId:devices.find(d=>integrated(d).length)?.id??devices.find(d=>d.type==='rotary')?.id??ordered[0]?.id;

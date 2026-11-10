@@ -9,6 +9,7 @@ export interface Visual { shape: 'plate' | 'cylinder' | 'box' | 'detector'; size
 export interface Device {
   id: string; type: 'rotary' | 'hexapod' | 'theta' | 'xy' | 'sample' | 'detector' | 'fixture';
   output_frame: string; visual: Visual; provenance: 'synthetic' | 'source_statement';
+  integrated_into?: string;
   crystal?: { frame: string; cell: Cell; center_s_mm: Vec3; target_point_s_mm: Vec3 };
   detector?: { pixels: [number, number]; pixel_size_mm: [number, number]; provenance: 'source_statement' | 'synthetic' };
 }

@@ -1,7 +1,7 @@
 import Ajv from 'ajv';
 import schema from '../../schema/setup.schema.json';
 import { clone, SceneError, type SceneConfig } from './types';
-import { cross, lattice, norm, normalizeQuat, unit } from './math';
+import { cross, fromQuat, inverseRigid, lattice, multiply, norm, normalizeQuat, point, sub, translation, unit } from './math';
 
 const validate = new Ajv({ allErrors: true, strict: true }).compile(schema);
 function requireThat(ok: unknown, path: string, message: string): asserts ok {
@@ -55,15 +55,18 @@ export function validatedConfig(input: unknown): SceneConfig {
     }
   }
   const known=new Set(['LAB',...frames.keys()]),sampleIds:string[]=[];
+  // Register derived frames before resolving references from any device.
   for(const d of c.devices.devices){
-    requireThat(known.has(d.output_frame),'/devices/'+d.id,'Unknown output frame');
     if(d.type==='sample')requireThat(d.crystal,'/devices/'+d.id,'Sample requires crystal definition');
-    if(d.type==='detector')requireThat(d.detector,'/devices/'+d.id+'/detector','Detector requires pixel metadata');
     if(d.crystal){
       requireThat(d.type==='sample'&&!known.has(d.crystal.frame),'/devices/'+d.id,'Invalid or duplicate crystal frame');
       known.add(d.crystal.frame);sampleIds.push(d.id);
       try {lattice(d.crystal.cell);} catch(e) {throw new SceneError('INVALID_CELL','/devices/'+d.id+'/crystal/cell',(e as Error).message);}
     }
+  }
+  for(const d of c.devices.devices){
+    requireThat(known.has(d.output_frame),'/devices/'+d.id,'Unknown output frame');
+    if(d.type==='detector')requireThat(d.detector,'/devices/'+d.id+'/detector','Detector requires pixel metadata');
     const motion=frames.get(d.output_frame)?.motion;
     const expected={rotary:'revolute',theta:'revolute',hexapod:'six_dof',xy:'xy_translation'}[d.type as 'rotary'|'theta'|'hexapod'|'xy'];
     if(expected)requireThat(motion?.kind===expected,'/devices/'+d.id,'Device motion kind mismatch');
@@ -86,6 +89,17 @@ export function validatedConfig(input: unknown): SceneConfig {
     const parentRole={hexapod:'rotary',theta:'hexapod',xy:'theta'}[d.type as 'hexapod'|'theta'|'xy'];
     if(parentRole)requireThat(f&&fixedPathTo(f.parent,roleAt(parentRole)),'/devices/'+d.id,'Invalid motion ancestry; expected '+parentRole+' through fixed mounts');
     if(d.type==='sample')requireThat(fixedPathTo(d.output_frame,roleAt('xy')),'/devices/'+d.id,'Sample must be fixed to the XY output');
+    if(d.integrated_into!==undefined){
+      const host=devices.get(d.integrated_into),theta=host&&frames.get(host.output_frame);
+      requireThat(d.type==='xy'&&host?.type==='theta'&&theta?.motion.kind==='revolute'&&f,'/devices/'+d.id+'/integrated_into','Integrated XY must reference a theta device');
+      requireThat(fixedPathTo(f.parent,id=>id===theta.id),'/devices/'+d.id+'/integrated_into','Integrated XY must descend from its theta output through fixed mounts');
+      const mount=(frame:typeof f)=>multiply(translation(frame.mount.position_mm),fromQuat(frame.mount.quaternion_xyzw));
+      let base=mount(f),parent=f.parent;
+      while(parent!==theta.id){const fixed=frames.get(parent)!;base=multiply(mount(fixed),base);parent=fixed.parent;}
+      // Compare the zero-travel base to the axis center, not the translated XY output.
+      const center=point(inverseRigid(mount(theta)),theta.motion.center_mm);
+      requireThat(norm(sub(point(base,[0,0,0]),center))<=1e-8,'/assembly/frames/'+f.id+'/mount','Integrated XY base must remain at theta rotation center');
+    }
   }
   const stateSamples=Object.keys(c.experiment_state.samples);
   requireThat(stateSamples.length===sampleIds.length&&stateSamples.every(id=>sampleIds.includes(id)),'/experiment_state/samples','Sample states must exactly match devices');

@@ -128,6 +128,10 @@ describe('configuration and atomic state (V09/V10)',()=>{
     ['bad unit',c=>c.assembly.joints[0].unit='rad'],
     ['unknown output frame',c=>c.devices.devices[0].output_frame='missing'],
     ['duplicate frame',c=>c.assembly.frames.push(c.assembly.frames[0])],
+    ['crystal frame collides with LAB',c=>c.devices.devices.find((d:any)=>d.id==='sample').crystal.frame='LAB'],
+    ['crystal frame collides with assembly frame',c=>c.devices.devices.find((d:any)=>d.id==='sample').crystal.frame='S'],
+    ['duplicate crystal frame',c=>{const sample=structuredClone(c.devices.devices.find((d:any)=>d.id==='sample'));sample.id='second_sample';c.devices.devices.unshift(sample);c.experiment_state.samples.second_sample=structuredClone(c.experiment_state.samples.sample);}],
+    ['non-sample crystal definition',c=>c.devices.devices.find((d:any)=>d.id==='sample').type='fixture'],
     ['unknown parent',c=>c.assembly.frames[0].parent='missing'],
     ['cycle',c=>c.assembly.frames[0].parent='H1'],
     ['zero axis',c=>c.assembly.frames[0].motion.axis=[0,0,0]],
@@ -147,6 +151,10 @@ describe('configuration and atomic state (V09/V10)',()=>{
     ['hexapod detached from rotary',c=>c.assembly.frames.find((f:any)=>f.id==='H0').parent='LAB'],
     ['theta detached from hexapod',c=>c.assembly.frames.find((f:any)=>f.id==='P0').parent='H0'],
     ['XY detached from theta',c=>c.assembly.frames.find((f:any)=>f.id==='P2').parent='H1'],
+    ['integrated XY references unknown theta',c=>c.devices.devices.find((d:any)=>d.id==='xy').integrated_into='missing'],
+    ['integration on non-XY device',c=>c.devices.devices.find((d:any)=>d.id==='rotary').integrated_into='theta'],
+    ['integration references non-theta device',c=>c.devices.devices.find((d:any)=>d.id==='xy').integrated_into='hexapod'],
+    ['integrated XY base off theta center',c=>c.assembly.frames.find((f:any)=>f.id==='P2').mount.position_mm=[1,0,0]],
     ['sample detached from XY',c=>c.assembly.frames.find((f:any)=>f.id==='S').parent='P1'],
     ['unknown joint',c=>c.experiment_state.joints.unknown=0],
     ['unbound joint',c=>{c.assembly.joints.push({id:'extra',unit:'mm'});c.experiment_state.joints.extra=0;}],
@@ -163,6 +171,23 @@ describe('configuration and atomic state (V09/V10)',()=>{
     code(()=>s.get_crystal_direction('sample',[1,0,0],'bad' as any),'INVALID_DIRECTION_TYPE');
     code(()=>s.get_frame_transform('missing','LAB'),'UNKNOWN_FRAME');
   });
+  it.each(['before sample','after sample','reversed'])('V09/V10 resolves crystal-bound fixtures regardless of device order: %s',order=>{
+    const c=example_config();
+    c.devices.devices.push({id:'crystal_fixture',type:'fixture',output_frame:'C',visual:{shape:'box',size_mm:[1,1,1],color:'#ffffff'},provenance:'synthetic'});
+    if(order==='before sample')c.devices.devices.unshift(c.devices.devices.pop()!);
+    if(order==='reversed')c.devices.devices.reverse();
+    c.experiment_state.joints['rotary.phi']=90;
+    c.experiment_state.samples.sample.orientation_quaternion_xyzw=[0,0,Math.SQRT1_2,Math.SQRT1_2];
+    const s=load_scene(c);
+    close(s.get_world_position('crystal_fixture').position,[0,200,0]);
+    close(apply(s.get_world_transform('crystal_fixture').matrix,[1,0,0]),[-1,200,0]);
+    s.set_joint_value('theta.angle',90);
+    close(apply(s.get_world_transform('crystal_fixture').matrix,[1,0,0]),[0,200,1]);
+    const snapshot=s.save_state();snapshot.devices.devices.reverse();
+    s.restore_state(snapshot);
+    close(apply(s.get_world_transform('crystal_fixture').matrix,[1,0,0]),[0,200,1]);
+    expect(s.revision).toBe(2);
+  });
   it('V09 permits fixed support/shim frames without changing motion inheritance',()=>{
     const c=example_config();
     c.assembly.frames.push({id:'detector_support',parent:'LAB',mount:{position_mm:[10,20,30],quaternion_xyzw:[0,0,0,1]},motion:{kind:'fixed'}});
@@ -174,6 +199,38 @@ describe('configuration and atomic state (V09/V10)',()=>{
     const s=load_scene(c);s.set_joint_value('rotary.phi',90);s.set_joint_value('theta.angle',90);
     close(s.get_world_position('detector').position,[10,220,1030]);
     close(s.get_sample_point('sample').position,[0,200,0]);
+  });
+  it('V05/V09 integrated XYtheta preserves centered installation while retaining all three joints',()=>{
+    const s=load_scene(example_config()),mount=frame(s.save_state(),'P2').mount;
+    s.set_platform_pose('hexapod',{translation_mm:[2,3,4],rotation_deg:[12,23,34]});s.set_joint_value('rotary.phi',57);
+    const base=apply(s.get_frame_transform('LAB','P1').matrix,[0,0,0]);
+    s.set_joint_value('xy.x',3);s.set_joint_value('xy.y',-2);
+    for(const theta of [0,30,90,179]){
+      s.set_joint_value('theta.angle',theta);
+      close(apply(s.get_frame_transform('LAB','P1').matrix,[0,0,0]),base);
+      expect(s.get_point_to_axis_distance({frame:'LAB',position_mm:s.get_sample_point('sample','center').position},s.get_axis('theta')).distance_mm).toBeCloseTo(Math.sqrt(13),9);
+      expect(frame(s.save_state(),'P2').mount).toEqual(mount);
+      expect(s.save_state().devices.devices.find(d=>d.id==='xy')!.integrated_into).toBe('theta');
+    }
+  });
+  it('V09 integrated XYtheta checks the assembled base through fixed shims',()=>{
+    const c=example_config();
+    c.assembly.frames.push({id:'xy_shim',parent:'P1',mount:{position_mm:[4,0,0],quaternion_xyzw:[0,0,Math.SQRT1_2,Math.SQRT1_2]},motion:{kind:'fixed'}});
+    frame(c,'P2').parent='xy_shim';frame(c,'P2').mount.position_mm=[0,4,0];
+    const s=load_scene(c);s.set_joint_value('theta.angle',90);close(s.get_sample_point('sample').position,[0,200,0]);
+    frame(c,'P2').mount.position_mm=[0,3,0];code(()=>s.restore_state(c),'INVALID_CONFIG');
+    expect(s.revision).toBe(1);close(s.get_sample_point('sample').position,[0,200,0]);
+  });
+  it('V09 integrated XYtheta centers on the actual rotation axis rather than the theta frame origin',()=>{
+    const c=example_config(),motion=frame(c,'P1').motion;if(motion.kind!=='revolute')throw Error();
+    motion.center_mm=[5,6,0];frame(c,'P2').mount.position_mm=[5,6,0];
+    const s=load_scene(c);s.set_joint_value('theta.angle',90);close(s.get_sample_point('sample').position,[5,200,-6]);
+    s.set_joint_value('xy.x',1);close(s.get_sample_point('sample').position,[5,200,-7]);
+  });
+  it('V09 preserves legacy standalone XY mounts when integration is not declared',()=>{
+    const c=example_config();delete c.devices.devices.find(d=>d.id==='xy')!.integrated_into;
+    frame(c,'P2').mount.position_mm=[3,0,0];
+    close(load_scene(c).get_sample_point('sample').position,[3,200,0]);
   });
   it('V10 round-trips all configuration and guards returned copies',()=>{
     const s=load_scene(example_config());s.set_platform_pose('hexapod',{translation_mm:[1,2,3],rotation_deg:[4,5,6]});

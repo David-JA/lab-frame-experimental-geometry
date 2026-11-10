@@ -171,7 +171,7 @@ $$
 
 ### 5.5 配置、更新和保存
 
-- `devices.json`：设备 id/type、output_frame、visual 尺寸、样品 cell/center/target 及每个参数的 provenance。
+- `devices.json`：设备 id/type、output_frame、visual 尺寸、样品 cell/center/target 及每个参数的 provenance。XY 可用 `integrated_into` 引用 θ 设备，声明基座固定在 θ 旋转中心的一体台；此约束不取消 θ、X、Y 内部运动关节。未声明此关系的旧配置保留独立装配语义。
 - `assembly.json`：frame 父子关系、零位 mount、运动轴/轴上点、pivot、joint 绑定与 rotation_convention。
 - `experiment_state.json`：每个 joint_id 的数值、各样品 R_SC quaternion、目标晶向和显示选择。joint_id 唯一，例如 `rotary.phi`、`hexapod.x/y/z/u/v/w`、`theta.angle`、`xy.x/y`；unit 由定义显式给出，不从名称猜。
 - 三类输入带 `schema_version:1`。聚合 `SceneConfig={schema_version,devices,assembly,experiment_state}` 在加载时统一校验。Schema 检查字段/类型/单位枚举；loader 检查引用、单根、唯一 id、连通性、无环、运动边/joint 完整性以及数学有效性。无需 JSON Schema 承担图算法。
@@ -218,10 +218,11 @@ $$
 
 ### 5.7 最小页面与用户闭环
 
-左侧设备/坐标显示开关，中间 3D 场景，右侧原生参数表单和读数即可。包含：
+左侧为按装配层级排列的原生参数卡片及显示开关，中间 3D 场景，右侧为读数与 snapshot。2026-11-10 用户反馈后采用日间配色；设备卡片及内部参数块可折叠。包含：
 
 - φ、hexapod XYZ/UVW 与 pivot XYZ、θ、XY；样品 R_SC、目标索引及 direct/reciprocal 类型输入。非法输入标出字段，维持最后合法场景。
 - mount、轴定义、尺寸及 cell 可通过结构化配置 JSON 编辑/导入后一次性应用，不要求完整拖拽装配编辑器；提供默认示例恢复。
+- 安装位置 XYZ 与本级关节自由度分块：父坐标系和安装参考点的 LAB 坐标明示，参数名支持悬停/聚焦/点击查看继承关系。以固定安装基座承接整机移动；无独立基座的旋转级同步平移轴中心与零位 mount，保留关节读数。默认 XYθ 一体台合并成一张卡片、共用整机安装，XY 固定基座只读显示 θ 中心，不提供独立安装调节；保留 θ 和 X/Y 行程，移动后的 P2 原点不作为固定基座。独立 XY 配置的安装点仍不含本级行程，pivot 编辑与底座移动明确区分。折叠状态只属于当前页面，不进入物理 snapshot。
 - LAB/设备局部轴、C 正交轴和晶格方向的独立显隐；样品中心、target、pivot、θ/φ 轴显式可辨，beam 与 detector 不随台运动。
 - 相机旋转/缩放/复位；参数提交后下一次渲染使用更新后的完整 revision，不以固定 FPS 作本期验收承诺。
 - 保存为 JSON；导入文件后可选择“与当前状态比较”或“恢复”。比较摘要显示 joint 差值、设备 LAB 位姿变化、目标方向及配置变化标记，比较本身不改变场景；无需双视图或轨迹回放。读数可直接抄录或由 API 获取，Agent 可通过模块直接调用，无需观看图片或依赖浏览器全局变量。
@@ -259,7 +260,7 @@ T2/T3 的部分测试可在类型/配置合同稳定后独立开展，但渲染�
 | V09 配置拒绝 | 缺必需字段、坏 unit、unknown id、重复 id、坏 parent、环、零轴、非法 quat/cell、NaN/Inf 的内存 API 输入 | Schema/loader 分责返回可定位错误；加载/更新原子拒绝，原 scene/revision 不变；未知 UVW convention 明确拒绝 |
 | V10 保存恢复 | 非零组合下导出，随后修改 mount/cell/joints/晶体取向，再恢复；另导入无效 snapshot | 合法恢复全部 transforms/晶向/目标及配置一致；输出数组外部修改不污染 engine；非法恢复保留旧 scene |
 | V11 查询/像素/随机 | T_A,B 与逆变换；D 的四角像素中心；固定 seed=38 的100组有界姿态 | 相对变换闭合；pixel(0,0)=(-214.35,+214.35,0) mm；独立 scalar 参考不依赖生产 math helpers；同 seed 可复算 |
-| V12 浏览器闭环 | 页面加载；偏心→对中→θ；取向→φ；导出→修改→比较→恢复 | 三条流程 UI 与 API 同 revision；比较显示已知差异且不改变 revision，恢复后回到保存状态；数值 inspector/CPU matrixWorld 符合核心；无未处理 console error；实际 canvas 可见且各 marker/轴不误标 |
+| V12 浏览器闭环 | 页面加载；偏心→对中→θ；取向→φ；导出→修改→比较→恢复；安装联动与折叠/提示 | UI 与 API 同 revision；比较不改变 revision，恢复回到保存状态；非零 φ 下移动底座保持 joints，六轴/θ/XY/样品继承且 detector/beam 独立；数值 inspector/CPU matrixWorld 符合核心；无未处理 console error；canvas 可见且尺寸有界；1062 px 与窄屏布局、提示和轴标识可读 |
 | V13 两状态比较 | 比较 A=A；5.3 零位 A 与 xy.x=1 mm 的 B；再比较 φ=90°、仅 R_SC 绕目标 [001] 旋转90°、配置变化或不匹配 ID 的状态 | 同状态全部物理差异为零；B−A 的 joint delta=+1 mm、sample translation_delta_lab_mm=(1,0,0)，目标方向差0°；φ=90° 时 sample 旋转差90°而 [001]方向差0°、detector 不变；仅 R_SC 绕 [001] 旋转90°时，joints、机械 S 位姿及目标方向差均为零，crystal_rotation_delta_deg=90°；尺寸/cell 改变须 configuration_changed=true；ID/拓扑不匹配明确拒绝且当前 scene 不变 |
 
 浏览器数值检查复用 V01–V11 预期，不用截图像素差作物理判据；独立人工看一次示例的层级、杆、晶轴标注和中文/负号/数学符号。页面中文明确使用可用的 Microsoft YaHei 或 Noto Sans CJK SC，不能依赖日/韩字体替代。自动测试只等 revision/条件满足，不固定 sleep。Playwright/WebGL 不可用时记录缺口，不能将页面部分标为通过。
@@ -276,7 +277,15 @@ T4/T5 已形成可交互初版，V04/V12 的三条浏览器流程在正常 Windo
 
 实现细化：为独立测试补入 `@types/node 24.19.2`（MIT）；`visual.offset_mm` 是可配置的外观锚点，不进入机械 frame；detector 有效区在 D 的 z=0、外壳在其后方；C 正交箭头不与通用 frame 开关混为一组。固定依赖与源码由 Git 持有，截图位于 ignored `artifacts/`。
 
-当前 G0/G1 仍待用户对实际初版接受，T6 的最终接受/后续处置尚未闭合；实物参数/标定与 G2 未执行。单包约732 kB（gzip约190 kB）的构建体积提示保留，不以隐藏告警替代优化。评审记录由任务聊天持有。
+2026-11-10 用户反馈修订：日间模式、分层可折叠装置卡片、安装位置/自身自由度拆分和参数联动提示已落地，原三条流程与新增安装继承/折叠/提示/响应式流程共四条通过。已核查非零 φ 下大样品台安装平移，以及六轴/θ/XY/样品安装后的独立已知坐标；关节读数保持，detector/beam 分支独立，非法安装更新不改变 revision。直接绑定 LAB/派生晶体 frame 的设备无独立 mount，面板显示只读参考；LAB detector 恢复已加入浏览器回归，避免核心接受后控件重建失败。截图核查覆盖 1600 px、1062×956 和 390×844。首次布局回归发现 canvas 尺寸反馈导致页面异常增高，已通过绝对定位 canvas 消除内容尺寸反馈，并增加实际画布尺寸断言。
+
+接手核查修复：加载器分两步注册派生晶体 frame、解析设备引用，消除 C 绑定固定支架随设备数组排序被误拒的问题。新增三种排序下的加载、关节更新和反序 snapshot 恢复回归，并补充晶体 frame 与 LAB/装配 frame 冲突、重复晶体 frame、非样品晶体定义的原子拒绝断言；数值/API 测试共 50 项通过。浏览器恢复流程加入支架排在样品前、绑定 C 只读位置和后续关节运动/渲染核查，四条流程及 typecheck/build 通过。本机代理为 `socks5:` 时，仅在测试进程的 `NO_PROXY` 中追加 loopback 地址后复验；不修改持久代理设置。
+
+坐标与标注修订：改为固定 12 px 的屏幕空间文字、共点成员合并、避让和锚点引线，窗口/相机变化只重排文字，不移动物理 frame 或晶向。保留 XYZ 红绿蓝，C 用实线箭头、直接晶格用虚线箭头，φ 金色实线/θ 紫色虚线并显式标记共轴；目标使用品红色、pivot 使用灰色空心标记，目标点与目标方向分别命名。坐标/晶格显示开关同时移除对应标注。新增 5 项布局单测及第 5 条浏览器流程，检查固定字号、真实锚点、共点成员、DOM 边界/重叠、开关、相机旋转/缩放与非零姿态；既有物理矩阵与杆端点检查保留。审阅截图位于 ignored `artifacts/labels-*.png`，视觉审阅结论仍由任务聊天持有。
+
+XYθ 一体台确认修订：用户确认合并卡片、锁定 XY 基座在 θ 中心、保留 θ/X/Y 行程。默认示例新增 `xy.integrated_into="theta"`；核心依据实际 θ 轴中心及固定安装链检查零行程基座，不将 P2 的运动位置误当基座，并保留独立旧配置兼容性。新增 8 项数值/配置回归，数值/API 共 58 项；第 6 条浏览器流程检查单卡、共同安装、只读基座、三个关节、非法偏移原子拒绝、反序恢复及旧配置。截图在 `artifacts/xytheta-{integrated,mobile}.png`。
+
+当前 G0/G1 仍待用户对实际初版接受，T6 的最终接受/后续处置尚未闭合；实物参数/标定与 G2 未执行。单包约750 kB（gzip约197 kB）的构建体积提示保留，不以隐藏告警替代优化。评审记录由任务聊天持有。
 
 ## Durable outcome
 

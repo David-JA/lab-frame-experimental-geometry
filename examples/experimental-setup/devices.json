@@ -52,6 +52,7 @@
       "id": "xy",
       "type": "xy",
       "output_frame": "P2",
+      "integrated_into": "theta",
       "visual": {
         "shape": "box",
         "size_mm": [

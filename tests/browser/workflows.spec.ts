@@ -2,7 +2,13 @@ import { test, expect, type Page } from '@playwright/test';
 import { Buffer } from 'node:buffer';
 const state=async(page:Page)=>JSON.parse((await page.locator('#readout').getAttribute('data-state'))!);
 const diagnostics=async(page:Page)=>JSON.parse((await page.locator('#diagnostics').getAttribute('data-diagnostics'))!);
+async function openDevice(page:Page,id:string){
+  let box=page.locator('#device-'+id);
+  if(!await box.count())box=page.locator('.device-card').filter({has:page.locator('[data-device-part="'+id+'"]')});
+  if(!await box.evaluate(el=>(el as HTMLDetailsElement).open))await box.locator(':scope > summary').click();
+}
 async function joint(page:Page,id:string,value:number){
+  await openDevice(page,id.split('.')[0]);
   const input=page.locator('[data-joint="'+id+'"]');await input.fill(String(value));await input.press('Tab');
   await expect.poll(async()=> (await state(page)).snapshot.experiment_state.joints[id]).toBe(value);
 }
@@ -14,6 +20,20 @@ async function checkViewer(page:Page){
   expect(d.max_detector_plane_error_mm).toBeLessThan(1e-8);
   expect(d.max_crystal_origin_error_mm).toBeLessThan(1e-8);
   await expect(page.locator('canvas[aria-label="实验装置三维场景"]')).toBeVisible();
+  const canvas=await page.locator('#viewport canvas').boundingBox();expect(canvas!.height).toBeGreaterThan(200);expect(canvas!.height).toBeLessThan(1600);
+}
+async function checkLabels(page:Page){
+  const layer=page.locator('.scene-label-layer');
+  await expect(layer).toHaveAttribute('data-hidden-count','0');
+  const layout=()=>page.locator('.scene-label:not([hidden])').evaluateAll(els=>{
+    const canvas=document.querySelector('#viewport')!.getBoundingClientRect();
+    return els.map(el=>{const r=el.getBoundingClientRect();return {text:el.textContent,left:r.left-canvas.left,top:r.top-canvas.top,right:r.right-canvas.left,bottom:r.bottom-canvas.top,font:parseFloat(getComputedStyle(el).fontSize),width:canvas.width,height:canvas.height};});
+  });
+  await expect.poll(async()=>{
+    const boxes=await layout();
+    return boxes.length>0&&boxes.every((a,i)=>a.left>=0&&a.top>=0&&a.right<=a.width&&a.bottom<=a.height&&boxes.slice(i+1).every(b=>a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top));
+  }).toBe(true);
+  for(const box of await layout())expect(box.font).toBeGreaterThanOrEqual(12);
 }
 test('V04/V05/V12: eccentricity → centering → nested theta, actual render matrices',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
@@ -49,6 +69,7 @@ test('V04/V05/V12: eccentricity → centering → nested theta, actual render ma
 test('V08/V12: crystal tilt → phi scan and antiparallel alignment',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173');
+  await openDevice(page,'sample');
   await page.getByRole('spinbutton',{name:'q_x',exact:true}).fill(String(Math.sin(Math.PI/12)));
   await page.getByRole('spinbutton',{name:'q_w',exact:true}).fill(String(Math.cos(Math.PI/12)));
   await page.getByRole('button',{name:'应用晶体参数'}).click();
@@ -59,8 +80,60 @@ test('V08/V12: crystal tilt → phi scan and antiparallel alignment',async({page
   await page.getByRole('button',{name:'应用晶体参数'}).click();
   await expect(page.locator('#readout')).toContainText('有向目标：0, -1, 0');
   await expect(page.locator('#readout')).toContainText('带轴误差：0°');await expect(page.locator('#readout')).toContainText('几何对齐：是');
+  await page.locator('.display-card > summary').click();
   await page.getByRole('checkbox',{name:'C 正交笛卡尔轴',exact:true}).uncheck();await checkViewer(page);
   expect(errors).toEqual([]);
+});
+
+test('Device blocks: installation inheritance, separate joint values, hints and daylight layout',async({page})=>{
+  await page.setViewportSize({width:1062,height:956});
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('http://127.0.0.1:4173');
+  expect(await page.locator('.device-card').evaluateAll(els=>els.map(el=>(el as HTMLElement).dataset.device))).toEqual(['rotary','hexapod','theta','sample','detector']);
+  await page.getByRole('button',{name:'全部收起'}).click();
+  expect(await page.locator('.device-card[open]').count()).toBe(0);await openDevice(page,'rotary');
+  await joint(page,'rotary.phi',90);
+  const install=async(name:string,value:number)=>{const input=page.getByRole('spinbutton',{name,exact:true});await input.fill(String(value));await input.press('Tab');};
+  await install('大样品台 · φ · 安装 X / mm',25);
+  await expect(page.locator('#readout')).toContainText('样品中心：25, 200, 0');
+  await expect(page.locator('#readout')).toContainText('目标点到 φ 轴：0 mm');
+  let config=(await state(page)).snapshot;
+  expect(config.experiment_state.joints['rotary.phi']).toBe(90);
+  expect(config.assembly.frames.find((f:{id:string})=>f.id==='D').mount.position_mm).toEqual([0,200,1000]);
+  expect(config.assembly.beam.point_mm).toEqual([0,200,0]);
+  await openDevice(page,'hexapod');await install('六轴位移台 · 安装 Y / mm',20);
+  await expect(page.locator('#readout')).toContainText('样品中心：25, 220, 0');
+  await expect(page.locator('#readout')).toContainText('当前 pivot：25, 220, 0');
+  await openDevice(page,'theta');await install('XYθ 一体位移台 · 安装 X / mm',10);
+  await expect(page.locator('#readout')).toContainText('样品中心：25, 220, -10');
+  await joint(page,'xy.x',3);
+  await expect(page.locator('#readout')).toContainText('样品中心到 θ 轴：3 mm');
+  await openDevice(page,'sample');await install('样品与晶体 · 安装 Z / mm',4);
+  await expect(page.locator('#readout')).toContainText('样品中心：25, 224, -13');
+  await openDevice(page,'detector');await install('探测器 · 安装 X / mm',7);
+  await expect(page.locator('#readout')).toContainText('样品中心：25, 224, -13');
+  config=(await state(page)).snapshot;
+  for(const [id,value]of Object.entries(config.experiment_state.joints))expect(value).toBe(id==='rotary.phi'?90:id==='xy.x'?3:0);
+  expect(config.assembly.frames.find((f:{id:string})=>f.id==='P2').mount.position_mm).toEqual([0,0,0]);
+  await checkViewer(page);
+  const revision=(await state(page)).revision;
+  await page.getByRole('spinbutton',{name:'探测器 · 安装 X / mm',exact:true}).fill('');
+  await page.getByRole('spinbutton',{name:'探测器 · 安装 X / mm',exact:true}).press('Tab');
+  expect((await state(page)).revision).toBe(revision);await expect(page.getByRole('status')).toHaveClass('error');
+  await page.getByRole('button',{name:'恢复默认示例'}).click();
+  const reordered=(await state(page)).snapshot;reordered.devices.devices.reverse();
+  await page.locator('#config').fill(JSON.stringify(reordered));await page.getByRole('button',{name:'恢复 / 应用 JSON'}).click();
+  await page.getByRole('button',{name:'全部收起'}).click();await openDevice(page,'rotary');
+  await page.getByRole('button',{name:'样品台近景'}).click();
+  const hint=page.getByRole('button',{name:'说明：大样品台 · φ · 安装 X / mm',exact:true});await hint.hover();
+  await expect(page.getByRole('tooltip')).toContainText('六轴位移台');await expect(page.getByRole('tooltip')).toContainText('C 晶体坐标系');
+  await expect(page.getByRole('tooltip')).not.toContainText(' → ');
+  await page.screenshot({path:'artifacts/daylight-1062.png',fullPage:true});
+  await hint.focus();await page.keyboard.press('Escape');await expect(page.getByRole('tooltip')).toBeHidden();
+  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await expect(page.locator('canvas[aria-label="实验装置三维场景"]')).toBeInViewport();
+  await page.screenshot({path:'artifacts/daylight-mobile.png'});expect(errors).toEqual([]);
 });
 test('V09/V10/V12/V13: export → modify → compare → import/restore; invalid restore stays atomic',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
@@ -81,9 +154,100 @@ test('V09/V10/V12/V13: export → modify → compare → import/restore; invalid
   await page.locator('#config').fill(JSON.stringify(spin));await page.getByRole('button',{name:'与当前状态比较'}).click();
   const result=JSON.parse((await page.locator('#comparison').textContent())!);
   expect(result.sample_delta.sample.crystal_rotation_delta_deg).toBeCloseTo(90,8);expect(result.sample_delta.sample.direction_delta_deg).toBeLessThan(1e-8);
+  const labBound=structuredClone(saved);labBound.devices.devices.find((d:{id:string})=>d.id==='detector').output_frame='LAB';
+  await page.locator('#config').fill(JSON.stringify(labBound));await page.getByRole('button',{name:'恢复 / 应用 JSON'}).click();
+  await expect(page.getByRole('status')).toContainText('状态已更新');await openDevice(page,'detector');
+  await expect(page.locator('#device-detector')).toContainText('直接绑定 LAB，没有独立安装 mount');
+  await expect(page.locator('#device-detector .position-info')).toHaveText('绑定原点 · LAB (0, 0, 0) mm');
+  expect(await page.locator('#device-detector input').count()).toBe(0);await checkViewer(page);
+  const crystalBound=structuredClone(saved);
+  crystalBound.devices.devices.unshift({id:'crystal_fixture',type:'fixture',output_frame:'C',visual:{shape:'box',size_mm:[1,1,1],color:'#ffffff'},provenance:'synthetic'});
+  await page.locator('#config').fill(JSON.stringify(crystalBound));await page.getByRole('button',{name:'恢复 / 应用 JSON'}).click();
+  await expect(page.getByRole('status')).toContainText('状态已更新');await openDevice(page,'crystal_fixture');
+  await expect(page.locator('#device-crystal_fixture')).toContainText('直接绑定 C，没有独立安装 mount');
+  await expect(page.locator('#device-crystal_fixture .position-info')).toHaveText('绑定原点 · LAB (0, 200, 0) mm');
+  expect(await page.locator('#device-crystal_fixture input').count()).toBe(0);
+  await joint(page,'rotary.phi',35);await checkViewer(page);
   const invalid=structuredClone(saved);invalid.assembly.frames.find((f:{id:string})=>f.id==='D').parent='H1';
   const revision=(await state(page)).revision;
   await page.locator('#config').fill(JSON.stringify(invalid));await page.getByRole('button',{name:'恢复 / 应用 JSON'}).click();
   await expect(page.getByRole('status')).toContainText('Detector must be fixed to LAB');
   expect((await state(page)).revision).toBe(revision);await checkViewer(page);expect(errors).toEqual([]);
+});
+test('Screen labels: fixed size, coincident grouping, distinct roles and no overlap while orbiting or resizing',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('http://127.0.0.1:4173');await checkLabels(page);await checkViewer(page);
+  const origin=page.locator('.scene-label').filter({has:page.locator('.scene-label-entry', {hasText:'样品中心'})});
+  await expect(origin).toContainText('共点');await expect(origin).toContainText('目标点');
+  const members=JSON.parse((await origin.getAttribute('data-members'))!);
+  expect(members.filter((m:{role:string})=>m.role==='frame').map((m:{text:string})=>m.text).sort()).toEqual(['C','P0','P1','P2','S']);
+  expect(JSON.parse((await origin.getAttribute('data-world'))!)).toEqual([0,200,0]);
+  await expect(page.locator('.scene-label-entry[data-role=axis]')).toHaveText('φ / θ 共轴');
+  expect(members.find((m:{text:string})=>m.text==='pivot').color).not.toBe('#9a6500');
+  await expect(page.locator('.scene-label-entry[data-role=target]')).toHaveText('目标方向 [0 0 1]');
+  await page.screenshot({path:'artifacts/labels-overview.png',fullPage:true});
+  const before=await state(page);
+  await page.setViewportSize({width:1062,height:956});await page.getByRole('button',{name:'样品台近景'}).click();await checkLabels(page);
+  await page.screenshot({path:'artifacts/labels-closeup-1062.png',fullPage:true});
+  const canvas=(await page.locator('#viewport canvas').boundingBox())!;
+  await page.mouse.move(canvas.x+canvas.width*.75,canvas.y+canvas.height*.65);await page.mouse.down();
+  await page.mouse.move(canvas.x+canvas.width*.55,canvas.y+canvas.height*.75,{steps:8});await page.mouse.up();await checkLabels(page);
+  await page.mouse.wheel(0,200);await checkLabels(page);
+  expect(await state(page)).toEqual(before);await checkViewer(page);
+  await page.locator('.display-card > summary').click();
+  await page.getByRole('checkbox',{name:'设备 frame 坐标轴',exact:true}).uncheck();await checkLabels(page);
+  expect(await page.locator('.scene-label-entry[data-role=frame]').allTextContents()).toEqual(['C']);
+  await page.getByRole('checkbox',{name:'C 正交笛卡尔轴',exact:true}).uncheck();
+  expect(await page.locator('.scene-label-entry[data-role=crystal],.scene-label-entry[data-role=frame]').count()).toBe(0);
+  await page.getByRole('checkbox',{name:'直接晶格 [100]/[010]/[001]',exact:true}).uncheck();
+  expect(await page.locator('.scene-label-entry[data-role=lattice]').count()).toBe(0);
+  await openDevice(page,'sample');await page.getByRole('combobox',{name:'方向类型',exact:true}).selectOption('reciprocal');
+  await page.getByRole('button',{name:'应用晶体参数'}).click();
+  await expect(page.locator('.scene-label-entry[data-role=target]')).toHaveText('目标法向 (0 0 1)');await checkLabels(page);
+  await page.getByRole('button',{name:'恢复默认示例'}).click();
+  await joint(page,'rotary.phi',35);await joint(page,'hexapod.u',20);await joint(page,'hexapod.v',-12);await joint(page,'theta.angle',25);
+  await page.getByRole('button',{name:'样品台近景'}).click();await checkLabels(page);await checkViewer(page);
+  expect(await page.locator('.scene-label-entry[data-role=axis]').allTextContents()).toEqual(['φ 轴','θ 轴']);
+  await page.screenshot({path:'artifacts/labels-tilted.png',fullPage:true});
+  await page.getByRole('button',{name:'恢复默认示例'}).click();await page.setViewportSize({width:390,height:844});
+  await page.getByRole('button',{name:'样品台近景'}).click();await page.evaluate(()=>window.scrollTo(0,0));await checkLabels(page);await checkViewer(page);
+  await page.screenshot({path:'artifacts/labels-mobile.png'});expect(errors).toEqual([]);
+});
+test('Integrated XYtheta: one shared installation, a locked centered base and three internal joints',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173');
+  await page.getByRole('button',{name:'全部收起'}).click();await openDevice(page,'theta');
+  const card=page.locator('#device-theta'),base=card.locator('[data-integrated-base="theta"]');
+  await expect(card.locator(':scope > summary')).toContainText('XYθ 一体位移台');
+  await expect(card).toHaveAttribute('data-devices','["theta","xy"]');expect(await page.locator('#device-xy').count()).toBe(0);
+  expect(await card.locator('input').count()).toBe(6);expect(await card.locator('[data-joint]').count()).toBe(3);
+  expect(await page.getByRole('spinbutton',{name:'XY 位移台 · 安装 X / mm',exact:true}).count()).toBe(0);
+  await expect(base).toContainText('LAB (0, 200, 0)');
+  const xyHint=card.getByRole('button',{name:'说明：xy.x / mm',exact:true});await xyHint.hover();
+  await expect(page.getByRole('tooltip')).toContainText('XY 滑台');await expect(page.getByRole('tooltip')).toContainText('XY 基座固定于 θ 中心');
+  await xyHint.focus();await xyHint.press('Escape');
+  await joint(page,'xy.x',3);await joint(page,'xy.y',2);await joint(page,'theta.angle',90);
+  await expect(page.locator('#readout')).toContainText('样品中心：-2, 200, -3');await expect(base).toContainText('LAB (0, 200, 0)');
+  const installation=page.getByRole('spinbutton',{name:'XYθ 一体位移台 · 安装 X / mm',exact:true});
+  await installation.fill('5');await installation.press('Tab');
+  await expect(page.locator('#readout')).toContainText('样品中心：3, 200, -3');await expect(base).toContainText('LAB (5, 200, 0)');
+  const current=await state(page),saved=current.snapshot;
+  expect(saved.assembly.frames.find((f:{id:string})=>f.id==='P2').mount.position_mm).toEqual([0,0,0]);
+  await checkViewer(page);await checkLabels(page);
+  await page.locator('.left').evaluate(el=>el.scrollTop=(el.querySelector('#device-theta') as HTMLElement).offsetTop-(el as HTMLElement).offsetTop);
+  await page.screenshot({path:'artifacts/xytheta-integrated.png',fullPage:true});
+  const invalid=structuredClone(saved);invalid.assembly.frames.find((f:{id:string})=>f.id==='P2').mount.position_mm[0]=1;
+  await page.locator('#config').fill(JSON.stringify(invalid));await page.getByRole('button',{name:'恢复 / 应用 JSON'}).click();
+  await expect(page.getByRole('status')).toContainText('Integrated XY base must remain at theta rotation center');
+  expect(await state(page)).toEqual(current);
+  const legacy=structuredClone(invalid);delete legacy.devices.devices.find((d:{id:string})=>d.id==='xy').integrated_into;
+  await page.locator('#config').fill(JSON.stringify(legacy));await page.getByRole('button',{name:'恢复 / 应用 JSON'}).click();
+  await openDevice(page,'xy');await expect(page.getByRole('spinbutton',{name:'XY 位移台 · 安装 X / mm',exact:true})).toHaveValue('1');
+  const reordered=structuredClone(saved);reordered.devices.devices.reverse();
+  await page.locator('#config').fill(JSON.stringify(reordered));await page.getByRole('button',{name:'恢复 / 应用 JSON'}).click();await openDevice(page,'theta');
+  expect(await page.locator('.device-card').count()).toBe(5);expect(await page.locator('#device-xy').count()).toBe(0);
+  for(const [id,value]of [['theta.angle','90'],['xy.x','3'],['xy.y','2']])await expect(page.locator('[data-joint="'+id+'"]')).toHaveValue(value);
+  await page.setViewportSize({width:390,height:844});await card.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'artifacts/xytheta-mobile.png'});await checkViewer(page);expect(errors).toEqual([]);
 });

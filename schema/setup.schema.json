@@ -166,6 +166,11 @@
           "type": "string",
           "minLength": 1
         },
+        "integrated_into": {
+          "type": "string",
+          "minLength": 1,
+          "description": "For an XY device, the theta device whose rotation center fixes the XY base. Internal X/Y travel remains independent."
+        },
         "visual": {
           "$ref": "#/$defs/visual"
         },

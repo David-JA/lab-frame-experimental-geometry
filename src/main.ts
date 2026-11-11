@@ -9,7 +9,7 @@ document.querySelector('#app')!.innerHTML=`
 <header class="app-header"><div class="app-title"><h1>SSRF-BL12SW 实验几何工作台</h1><span>Lab Frame · 单晶几何</span></div><div class="header-actions"><span id="model-identity" class="badge">合成配置 · 未实物标定</span><a class="feedback-link" href="https://github.com/David-JA/lab-frame-experimental-geometry/issues/new/choose" target="_blank" rel="noreferrer">反馈</a><button id="open-config">配置</button></div></header>
 <main class="workbench"><aside class="left" aria-label="装置与参数"><div class="panel-heading"><h2>装置</h2><div class="fold-actions"><button id="expand-devices" aria-label="展开装置树">展开</button><button id="collapse-devices" aria-label="收起装置树">收起</button></div></div><div id="devices"></div></aside>
 <section class="viewport-wrap" aria-label="三维观察工作区"><div class="toolbar"><div class="camera-actions"><button id="camera-all">全景</button><button id="camera-apparatus">装置近景</button><button id="camera-sample">样品近景</button></div><span id="selected-caption" class="selected-caption"></span><label class="diagnostic-toggle"><input id="coordinate-diagnostics" type="checkbox">坐标与方向</label></div><div id="diagnostic-guide" class="diagnostic-guide" hidden><label>查看 <select id="diagnostic-preset" aria-label="要看的坐标或方向"><option value="crystal">晶体坐标</option><option value="lattice">晶格方向</option><option value="devices">装置坐标</option><option value="all">全部对照</option></select></label><span id="diagnostic-explanation"></span><button id="open-display-settings">图层设置</button></div><div id="viewport"></div>
-<div class="key-readings" aria-label="关键几何读数"><div><span>带轴误差</span><strong id="key-alignment">—</strong></div><div><span>目标点 → φ 轴</span><strong id="key-phi">—</strong></div><div><span>样品中心 → θ 轴</span><strong id="key-theta">—</strong></div><button id="open-details">读数详情</button><p id="target-summary"></p></div><div class="workspace-status"><span id="status" role="status"></span><span class="navigation-hint">拖动旋转 · 滚轮缩放 · 右键平移</span></div></section></main>
+<div class="key-readings" aria-label="关键几何读数"><div><span>带轴误差</span><strong id="key-alignment">—</strong></div><div><span>目标点 → φ 轴</span><strong id="key-phi">—</strong></div><div><span>样品中心 → θ 轴</span><strong id="key-theta">—</strong></div><button id="open-details">读数详情</button><p id="target-summary"></p></div><div class="workspace-status"><span id="status" role="status"></span><span class="navigation-hint">左键拖动旋转 · 中键拖动平移 · 滚轮缩放</span></div></section></main>
 <dialog id="workspace-drawer" class="workspace-drawer" aria-labelledby="drawer-title"><div class="drawer-heading"><h2 id="drawer-title">配置与显示</h2><button id="close-drawer" aria-label="关闭工具抽屉">关闭</button></div><div class="drawer-tabs" role="tablist" aria-label="工具分类"><button role="tab" id="tab-config" aria-controls="panel-config">配置</button><button role="tab" id="tab-details" aria-controls="panel-details">读数与显示</button><button role="tab" id="tab-coincident" aria-controls="panel-coincident">重合位置</button></div>
 <p id="drawer-status" class="small" aria-live="polite"></p><section id="panel-config" role="tabpanel" aria-labelledby="tab-config"><h3>保存或载入配置</h3><div class="actions"><button id="export">保存配置文件</button><label class="file">选择配置文件<input id="file" type="file" accept=".json,application/json"></label><button id="apply-file" disabled>载入配置</button></div><details id="json-settings" class="info-card"><summary>查看或编辑 JSON（高级）</summary><textarea id="config" aria-label="配置文件 JSON（高级）" spellcheck="false"></textarea><div class="actions"><button id="show-current">填入当前配置</button><button id="compare">查看差异</button><button id="restore">应用编辑后的配置</button></div><pre id="comparison" class="readout">导入或编辑 JSON 后可先比较；比较不会移动设备。</pre></details><section class="reset-section"><h3>恢复示例配置</h3><p class="small">以下操作改变装配与运动状态，不是恢复相机视角。</p><button id="reset">恢复默认示例</button></section><p class="small">示例不是实物标定。视觉杆不参与机构求解，未配置行程不代表硬件运动许可。</p></section>
 <section id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden><h3>空间与晶体读数</h3><pre id="readout" class="readout coords"></pre><h3>可显示的坐标与方向</h3><label class="check"><input id="drawer-diagnostics" type="checkbox">显示坐标与方向</label><div id="display"></div><p class="small">先在主视图选择要看的类型。以下开关决定各类箭头是否可见，并随配置保存；查看类型和总开关只影响当前画面。</p><div id="axis-legend" class="small"><span class="phi-key">φ 轴</span> · <span class="theta-key">θ 轴</span> · <span class="beam-key">beam +Z</span></div><p id="direction-legend" class="small">X/Y/Z 分别为红/绿/蓝；晶体坐标用实线，晶格方向用虚线，观察目标用品红。箭头长度仅供示意。</p><details class="info-card"><summary>运动继承与渲染检查</summary><pre id="inheritance" class="readout"></pre><div id="diagnostics"></div></details><p class="small"><a href="https://github.com/David-JA/obsidian/issues/38" target="_blank" rel="noreferrer">需求与验收 · Obsidian #38</a></p></section>
@@ -26,13 +26,15 @@ function fail(error:unknown){
   const message=error instanceof SceneError?(error.code==='INVALID_QUATERNION'?'晶体取向未应用：四个分量的平方和需要等于 1。':error.message.includes('Target indices cannot be zero')?'观察方向未应用：三个指标不能同时为 0。':JSON.stringify(error.toJSON())):error instanceof SyntaxError?'配置尚未载入：文件内容不是有效的 JSON。':String(error);
   status(message,true);
 }
-function change(action:()=>void,input?:HTMLInputElement){
-  try{action();input?.removeAttribute('aria-invalid');render();status('状态已更新');}
-  catch(error){input?.setAttribute('aria-invalid','true');fail(error);}
+function change(action:()=>void,input?:HTMLInputElement,automatic=false):boolean{
+  if(!automatic)deviceControls?.pauseMotion('已手动修改参数，已暂停。');
+  try{action();input?.removeAttribute('aria-invalid');render();status('状态已更新');return true;}
+  catch(error){input?.setAttribute('aria-invalid','true');fail(error);return false;}
 }
 function buildControls(){
   const c=scene.save_state();
-  deviceControls=new DeviceControls(scene,byId('devices'),change,{selectedId:deviceControls?.selectedId,onSelect:()=>render()});byId('display').replaceChildren();
+  const selectedId=deviceControls?.selectedId;deviceControls?.dispose();
+  deviceControls=new DeviceControls(scene,byId('devices'),change,{selectedId,onSelect:()=>render(),motionEdit:action=>change(action,undefined,true)});byId('display').replaceChildren();
   for(const [key,label]of [['frames','装置坐标（含实验室）'],['crystal','晶体坐标 X/Y/Z'],['lattice','晶格方向 [100]/[010]/[001]']] as const){
     const el=document.createElement('label');el.className='check';const input=document.createElement('input');input.type='checkbox';input.checked=c.experiment_state.display[key];input.setAttribute('aria-label',label);
     input.addEventListener('change',()=>change(()=>{const next=scene.save_state();next.experiment_state.display[key]=input.checked;scene.restore_state(next);}));
@@ -51,7 +53,7 @@ function render(){
   byId('model-identity').textContent=(c.assembly.description?'粗测与示意配置':c.devices.devices.some(d=>d.provenance==='synthetic')?'合成配置':'来源配置')+' · 未实物标定';
   for(const id of ['key-alignment','key-phi','key-theta'])byId(id).textContent='—';byId('target-summary').textContent='';
   const sample=c.devices.devices.find(d=>d.crystal),rotary=c.devices.devices.find(d=>d.type==='rotary'),theta=c.devices.devices.find(d=>d.type==='theta'),hex=c.devices.devices.find(d=>d.type==='hexapod');
-  const lines=['LAB：位置 mm / 角度 deg','revision: '+scene.revision];
+  const lines=['LAB：位置 mm / 角度 °','revision: '+scene.revision];
   if(c.assembly.description)lines.push(c.assembly.description);
   if(sample){
     const s=c.experiment_state.samples[sample.id],center=scene.get_sample_point(sample.id,'center'),target=scene.get_sample_point(sample.id,'target'),d=scene.get_crystal_direction(sample.id,s.target_indices,s.direction_type).vector;
@@ -76,6 +78,7 @@ function render(){
 }
 const drawer=byId<HTMLDialogElement>('workspace-drawer');
 function openDrawer(tab:'config'|'details'|'coincident'){
+  if(tab==='config')deviceControls?.pauseMotion('已打开配置，已暂停。');
   for(const name of ['config','details','coincident']){byId('panel-'+name).hidden=name!==tab;byId('tab-'+name).setAttribute('aria-selected',String(name===tab));byId('tab-'+name).tabIndex=name===tab?0:-1;}
   if(!drawer.open)drawer.showModal();byId('tab-'+tab).focus();
 }
@@ -126,5 +129,8 @@ byId('export').onclick=()=>{
   a.href=url;a.download='lab-frame-scene.json';a.click();URL.revokeObjectURL(url);status('已导出完整 snapshot。');
 };
 byId('camera-all').onclick=()=>viewer?.reset_camera();byId('camera-apparatus').onclick=()=>viewer?.focus_apparatus();byId('camera-sample').onclick=()=>viewer?.focus_sample();
-window.addEventListener('pagehide',()=>viewer?.dispose());
+window.addEventListener('pagehide',event=>{
+  deviceControls?.pauseMotion('已离开页面，已暂停。');
+  if(!event.persisted){deviceControls?.dispose();viewer?.dispose();}
+});
 buildControls();editor.value=JSON.stringify(scene.save_state(),null,2);render();viewer?.focus_apparatus();status('配置已加载');

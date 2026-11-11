@@ -33,6 +33,13 @@ summary:hover{color:var(--accent)}
 .parameter-block>p,.impact{font-size:12px;line-height:1.75}.position-info{font-size:12px;color:#58666f;font-variant-numeric:tabular-nums}
 .parameter{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;font-size:14px}
 .parameter-name{padding:3px 0;color:#46535e;font-size:13px}
+.motion-runner{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) 48px;gap:6px;align-items:center;margin:6px 0}
+.motion-runner select{min-width:0;width:100%;padding:6px 4px;font-size:12px}
+.motion-speed{display:flex;align-items:center;min-width:0;border:1px solid #bec8d0;border-radius:4px;background:#fff;overflow:hidden}
+.motion-speed input{width:100%;min-width:0;border:0;padding:7px 4px;font-size:13px}
+.motion-speed span{font-size:11px;white-space:nowrap;padding-right:4px;color:var(--muted)}
+.motion-speed:has([aria-invalid=true]){border-color:#b33d32}.motion-runner button{padding:6px 3px;font-size:12px}.motion-runner-status{font-size:11px;margin:4px 0 12px}
+.motion-reset{float:right;min-height:26px;padding:2px 9px;font-size:12px;font-weight:400}
 .device-description{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}.device-description h3{font-size:13px;margin:0 0 12px}.device-description dl{margin:0}.device-description dt{font-size:12px;font-weight:600;color:#46535e;margin:12px 0 4px}.device-description dd{margin:0;font-size:12px;line-height:1.8;color:#58666f;overflow-wrap:anywhere}
 .sub-block{border:0;margin:7px 0 13px;padding:0}.sub-block>summary{font-size:12px;color:var(--muted);padding:5px 0}.sub-block select{width:100%;font-size:13px;margin:7px 0}
 .primary{background:var(--accent);color:#fff;border-color:var(--accent);width:100%}.primary:hover{background:#19566c}

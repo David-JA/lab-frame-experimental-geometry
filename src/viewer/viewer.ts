@@ -34,6 +34,7 @@ export class GeometryViewer {
     this.renderer.domElement.setAttribute('aria-label','实验装置三维场景');container.append(this.renderer.domElement);
     this.#labels=new SceneLabels(container,position=>this.callbacks.onInspectCoincident?.(position));
     this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.enableDamping=true;
+    this.controls.mouseButtons={LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.PAN,RIGHT:null};
     this.controls.addEventListener('change',this.#onControlsChange);
     const canvas=this.renderer.domElement;
     canvas.addEventListener('pointerdown',this.#onPointerDown);

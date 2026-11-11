@@ -248,6 +248,20 @@ describe('viewer display integration',()=>{
     }
     expect(new Set(sides).size).toBe(1);labels.dispose();
   });
+  it('keeps subpixel placement across moving-scene revisions and reordered coincidence members',()=>{
+    const labels=new SceneLabels(host as unknown as HTMLElement),camera=new PerspectiveCamera(42,host.clientWidth/host.clientHeight,1,10000);
+    camera.position.set(0,0,1000);camera.lookAt(0,0,0);
+    const worldPerPixel=2000*Math.tan(42*Math.PI/360)/host.clientHeight,offsets:number[]=[];
+    for(const [revision,dx] of [.1,.9,1.1,1.9,2.1,2.9].entries()){
+      const parent=new Group();parent.position.x=dx*worldPerPixel;parent.updateMatrixWorld();
+      const entries=[label('目标点',parent,undefined,{targetPoint:true,role:'point'}),label('P1',parent,undefined,{emphasis:'selected',caption:'XYθ',priority:6})];
+      labels.set(revision%2?entries.reverse():entries,revision);labels.render(camera);
+      const el=host.querySelectorAll('.scene-label')[0],boxX=Number(el.style.transform.match(/-?\d+(?:\.\d+)?/)![0]);
+      offsets.push(boxX-host.clientWidth/2-dx);expect(el.hidden).toBe(false);
+      expect(JSON.parse(el.dataset.world)[0]).toBeCloseTo(parent.position.x,10);
+    }
+    offsets.forEach(offset=>expect(offset).toBeCloseTo(offsets[0],10));labels.dispose();
+  });
   it('routes a compact common-point button to a fresh world-position tuple',()=>{
     const inspect=vi.fn(),labels=new SceneLabels(host as unknown as HTMLElement,inspect),entries=[label('目标点',undefined,new Vector3(1,2,3),{targetPoint:true,role:'point'}),label('C',undefined,new Vector3(1,2,3),{visible:false})];
     labels.set(entries,7);

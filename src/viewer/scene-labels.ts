@@ -59,6 +59,7 @@ export function placeLabels(anchors:LabelAnchor[],width:number,height:number):(B
   return result;
 }
 interface LabelGroup extends WorldLabelGroup {element:HTMLDivElement;line:SVGLineElement;dot:SVGCircleElement;width:number;height:number;offset?:{x:number;y:number}}
+const groupKey=(group:WorldLabelGroup)=>JSON.stringify(group.entries.map(e=>[e.role,e.text]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
 export class SceneLabels {
   readonly layer=document.createElement('div');
   #svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -69,14 +70,21 @@ export class SceneLabels {
     this.#svg.classList.add('scene-label-leaders');this.#svg.setAttribute('aria-hidden','true');this.layer.append(this.#svg);host.append(this.layer);
   }
   set(entries:SceneLabel[],revision:number,options:{diagnostics?:boolean}={}){
+    const previous=new Map<string,LabelGroup['offset']>();
+    for(const group of this.#groups){const key=groupKey(group);previous.set(key,previous.has(key)?undefined:group.offset);}
+    const groups=groupSceneLabels(entries),keys=groups.map(groupKey),counts=new Map<string,number>();
+    keys.forEach(key=>counts.set(key,(counts.get(key)??0)+1));
     this.layer.querySelectorAll('.scene-label').forEach(el=>el.remove());this.#svg.replaceChildren();this.#groups=[];
-    for(const group of groupSceneLabels(entries)){
+    for(const [index,group] of groups.entries()){
       const element=document.createElement('div');element.className='scene-label';element.setAttribute('role','listitem');
       element.style.fontSize='12px';element.style.pointerEvents='none';
       const line=document.createElementNS(this.#svg.namespaceURI,'line') as SVGLineElement;
       const dot=document.createElementNS(this.#svg.namespaceURI,'circle') as SVGCircleElement;dot.setAttribute('r','2.5');
       this.#svg.append(line,dot);this.layer.append(element);
-      this.#groups.push({...group,element,line,dot,width:0,height:0});
+      // Revisions replace Three objects and DOM, but not the semantic label identity.
+      // Ambiguous duplicate captions and split/merged coincidence groups start fresh.
+      const offset=counts.get(keys[index])===1?previous.get(keys[index]):undefined;
+      this.#groups.push({...group,element,line,dot,width:0,height:0,offset});
     }
     for(const g of this.#groups){
       const presentation=labelPresentation(g.entries,options.diagnostics);

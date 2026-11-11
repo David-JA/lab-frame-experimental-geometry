@@ -1,5 +1,6 @@
-import type { Scene, Device, Frame, Vec3, DirectionType } from '../core';
+import type { Scene, SceneConfig, Device, Frame, Vec3, DirectionType } from '../core';
 import { point } from '../core/math';
+import { SingleAxisMotion, type MotionAxis } from './single-axis-motion';
 
 const names:Record<Device['type'],string>={rotary:'大样品台 · φ',hexapod:'六轴位移台',z_stage:'Z 升降平台',theta:'θ 旋转台',xy:'XY 位移台',sample:'样品与晶体',detector:'探测器',fixture:'固定支架'};
 const fmt=(n:number)=>Math.abs(n)<1e-9?'0':String(Number(n.toFixed(6)));
@@ -8,10 +9,17 @@ export class DeviceControls {
   #refresh:(()=>void)[]=[];
   #cards=new Map<string,HTMLDetailsElement>();#rows=new Map<string,HTMLButtonElement>();#aliases=new Map<string,string>();
   #selectedId='';#onSelect?: (id:string)=>void;#title:HTMLElement;
-  constructor(private scene:Scene,private host:HTMLElement,private edit:(action:()=>void,input?:HTMLInputElement)=>void,options:{selectedId?:string;onSelect?:(id:string)=>void}={}){
+  #motion:SingleAxisMotion;#motionViews:(()=>void)[]=[];
+  #visibility=()=>{if(document.hidden)this.pauseMotion('页面已进入后台，已暂停。');};
+  constructor(private scene:Scene,private host:HTMLElement,private edit:(action:()=>void,input?:HTMLInputElement)=>boolean,options:{selectedId?:string;onSelect?:(id:string)=>void;motionEdit?:(action:()=>void)=>boolean}={}){
     const oldOpen=new Map(Array.from(host.querySelectorAll<HTMLDetailsElement>('details')).map(el=>[el.id,el.open]));
     const oldExpanded=new Map(Array.from(host.querySelectorAll<HTMLButtonElement>('.device-tree-row')).map(el=>[el.dataset.device!,el.getAttribute('aria-expanded')]));
     this.#onSelect=options.onSelect;host.replaceChildren();
+    this.#motion=new SingleAxisMotion(options.motionEdit??edit,(id,message)=>{
+      const note=Array.from(host.querySelectorAll<HTMLElement>('.motion-runner-status')).find(el=>JSON.parse(el.dataset.axes!).includes(id));
+      if(note)note.textContent=message;this.#motionViews.forEach(refresh=>refresh());
+    });
+    document.addEventListener('visibilitychange',this.#visibility);
     const tree=document.createElement('ul');tree.className='device-tree';tree.setAttribute('role','tree');tree.setAttribute('aria-label','装置树');
     const inspector=document.createElement('section');inspector.className='device-inspector';inspector.setAttribute('aria-label','当前设备参数');
     this.#title=document.createElement('h2');this.#title.id='selected-device-name';inspector.append(this.#title);host.append(tree,inspector);
@@ -48,6 +56,7 @@ export class DeviceControls {
       const row=document.createElement('label');row.className='parameter';
       const name=document.createElement('span');name.className='parameter-name';name.textContent=label;
       const input=document.createElement('input');input.type='number';input.step='any';input.setAttribute('aria-label',aria);
+      input.addEventListener('input',()=>this.pauseMotion('正在手动编辑参数，已暂停。'));
       if(joint)input.dataset.joint=joint;
       const refresh=()=>input.value=String(get());refresh();if(!draft)this.#refresh.push(refresh);
       if(!draft)input.addEventListener('change',()=>this.edit(()=>write(input.valueAsNumber),input));row.append(name,input);parent.append(row);return input;
@@ -103,13 +112,13 @@ export class DeviceControls {
       const parentFrame=frames.get(f.parent);
       const anchor=(d.type==='hexapod'||d.type==='theta'||d.type==='z_stage')&&parentFrame?.motion.kind==='fixed'&&!byOutput.has(parentFrame.id)?parentFrame:f;
       const readFrame=()=>scene.save_state().assembly.frames.find(x=>x.id===anchor.id)!;
-      const writeElevation=(riseMm:number)=>{
-        const next=scene.save_state(),a=next.assembly.frames.find(x=>x.id===f.id)!,v=next.devices.devices.find(x=>x.id===d.id)!.visual;
+      const applyElevation=(next:SceneConfig,riseMm:number)=>{
+        const a=next.assembly.frames.find(x=>x.id===f.id)!,v=next.devices.devices.find(x=>x.id===d.id)!.visual;
         const delta=d.elevation!.base_mount_y_mm+riseMm-a.mount.position_mm[1];a.mount.position_mm[1]+=delta;
         if(a.motion.kind==='revolute')a.motion.center_mm[1]+=delta;
         v.size_mm[1]+=delta;const offset=v.offset_mm??[0,0,0];v.offset_mm=[offset[0],offset[1]-delta/2,offset[2]];
-        scene.restore_state(next);
       };
+      const writeElevation=(riseMm:number)=>{const next=scene.save_state();applyElevation(next,riseMm);scene.restore_state(next);};
       const reference=(frame:Frame):Vec3=>frame.motion.kind==='revolute'?frame.motion.center_mm:frame.motion.kind==='six_dof'?frame.motion.pivot_mm:frame.mount.position_mm;
       const placement=detail('placement-'+d.id,'安装位置与外形 · '+anchor.parent+' / mm',body,false,'parameter-block');
       text('p',anchor.motion.kind==='revolute'?'旋转轴参考点；随底座一起移动。':anchor.motion.kind==='six_dof'?'零位 pivot 安装参考点，不含本级平移。':anchor.motion.kind==='xy_translation'?'零位安装参考点 '+anchor.id+'，不含本级 XY 行程。':'安装基座 '+anchor.id+' 的原点，坐标相对 '+anchor.parent+'。',placement,'small');
@@ -138,11 +147,13 @@ export class DeviceControls {
         this.#refresh.push(()=>{const axis=scene.get_axis(d.id);baseInfo.textContent='XY 固定基座 · θ 中心 · LAB ('+xyz(point(scene.get_frame_transform('LAB',axis.frame).matrix,axis.point_mm))+') mm';});
       }
       const motion=detail('motion-'+d.id,members.length>1?'一体台运动 · θ / X / Y':'运动调整'+(f.motion.kind==='fixed'?' · 随上级装置移动':''),body,true,'parameter-block');
+      const axes:MotionAxis[]=[];
       if(d.elevation){
         const e=d.elevation;
         const baseTop=e.base_mount_y_mm+(d.visual.offset_mm?.[1]??0)+d.visual.size_mm[1]/2;
         text('p','台面基准约'+fmt(baseTop)+' mm，升高范围0–'+fmt(e.travel_mm/10)+' cm；升降带动上方装配，柱底保持原地。',motion,'small');
         const input=number('台面升高 / cm',deviceName(d)+' · 台面升高 / cm',()=>(scene.save_state().assembly.frames.find(x=>x.id===f.id)!.mount.position_mm[1]-e.base_mount_y_mm)/10,motion,value=>writeElevation(value*10));input.min='0';input.max=String(e.travel_mm/10);
+        axes.push({id:d.id+'.elevation',label:'台面升高',unit:'mm',limits:[0,e.travel_mm],read:()=>(scene.save_state().assembly.frames.find(x=>x.id===f.id)!.mount.position_mm[1]-e.base_mount_y_mm),write:writeElevation});
       }
       for(const member of members){
         const mf=frames.get(member.output_frame)!;
@@ -152,13 +163,55 @@ export class DeviceControls {
         if(!joints.length)text('p','没有可调运动，随上级坐标系移动。',group,'small');
         for(const id of joints){
           const j=c.assembly.joints.find(j=>j.id===id)!;
-          const centimeters=member.type==='z_stage',scale=centimeters?10:1,unit=centimeters?'cm':j.unit;
+          const centimeters=member.type==='z_stage',scale=centimeters?10:1,unit=centimeters?'cm':j.unit==='deg'?'°':j.unit;
           const label=(centimeters?'Z 高度':id.split('.').at(-1)!)+' / '+unit;
           if(member.integrated_into&&id===joints[0])text('p','X/Y 沿 '+mf.parent+' 中配置的方向移动上方滑台与样品，不移动一体台的固定基座。',group,'small');
           const input=number(label,id+' / '+unit,()=>scene.save_state().experiment_state.joints[id]/scale,group,value=>scene.set_joint_value(id,value*scale),id);
           if(j.limits){input.min=String(j.limits[0]/scale);input.max=String(j.limits[1]/scale);}
+          const axisLabel=member.type==='rotary'?'φ':member.type==='theta'?'θ':centimeters?'Z 高度':id.split('.').at(-1)!.toUpperCase();
+          axes.push({id,label:axisLabel,unit:j.unit==='deg'?'°':'mm',limits:j.limits,read:()=>scene.save_state().experiment_state.joints[id],write:value=>{scene.set_joint_value(id,value);}});
           if(centimeters)text('p',(j.limits?'可调高度'+j.limits.map(v=>fmt(v/scale)).join('–')+' cm':'未配置高度范围')+'，指上下安装面间距；沿 '+mf.parent+' 的 +Z 升高。零姿态时对应实验室 +Y。',group,'small');
         }
+      }
+      if(axes.length){
+        const bar=document.createElement('div');bar.className='motion-runner';bar.dataset.device=d.id;
+        const axisSelect=document.createElement('select');axisSelect.setAttribute('aria-label','连续运动轴');
+        for(const axis of axes)axisSelect.add(new Option(axis.label,axis.id));
+        const speedBox=document.createElement('label');speedBox.className='motion-speed';
+        const speed=document.createElement('input');speed.type='text';speed.inputMode='decimal';speed.value='+1';speed.setAttribute('aria-label','连续运动速度');
+        const unit=document.createElement('span');unit.textContent=axes[0].unit+'/s';speedBox.append(speed,unit);
+        const toggle=document.createElement('button');toggle.type='button';toggle.textContent='开始';toggle.dataset.action='motion-toggle';
+        const note=document.createElement('p');note.className='motion-runner-status small';note.dataset.axes=JSON.stringify(axes.map(axis=>axis.id));note.setAttribute('role','status');note.textContent='速度的正负号决定方向。';
+        const resetTargets=axes.map(axis=>axis.limits?Math.max(axis.limits[0],Math.min(axis.limits[1],0)):0);
+        const allZero=resetTargets.every(value=>value===0),reset=document.createElement('button');
+        reset.type='button';reset.className='motion-reset';reset.dataset.action='reset-motion';reset.textContent='复位';
+        reset.setAttribute('aria-label',deviceName(d)+' · 全部运动轴复位');
+        if(!allZero)note.textContent=d.type==='z_stage'?'复位回到 '+fmt(resetTargets[0]/10)+' cm；速度正负号决定方向。':'复位回到行程允许的最接近零的位置。';
+        reset.onclick=event=>{
+          event.preventDefault();event.stopPropagation();this.pauseMotion('正在复位，已暂停。');
+          const applied=this.edit(()=>{
+            const next=scene.save_state();
+            axes.forEach((axis,i)=>{
+              if(d.elevation&&axis.id===d.id+'.elevation')applyElevation(next,resetTargets[i]);
+              else next.experiment_state.joints[axis.id]=resetTargets[i];
+            });
+            scene.restore_state(next);
+          });
+          if(applied)note.textContent=allZero?'本装置全部运动轴已复位。':d.type==='z_stage'?'已复位到 '+fmt(resetTargets[0]/10)+' cm。':'已复位到行程允许的最接近零的位置。';
+        };
+        motion.querySelector(':scope > summary')!.append(reset);
+        const refresh=()=>{toggle.textContent=this.#motion.running&&axes.some(a=>a.id===this.#motion.axisId)?'暂停':'开始';};
+        this.#motionViews.push(refresh);
+        axisSelect.onchange=()=>{this.pauseMotion('已切换运动轴，已暂停。');unit.textContent=axes.find(a=>a.id===axisSelect.value)!.unit+'/s';};
+        speed.oninput=()=>{this.pauseMotion('速度已修改，点击开始继续。');speed.removeAttribute('aria-invalid');};
+        toggle.onclick=()=>{
+          if(this.#motion.running){this.pauseMotion();return;}
+          const started=this.#motion.start(axes.find(a=>a.id===axisSelect.value)!,Number(speed.value));
+          speed.toggleAttribute('aria-invalid',!started&&(!Number.isFinite(Number(speed.value))||Number(speed.value)===0));
+          if(speed.hasAttribute('aria-invalid'))speed.setAttribute('aria-invalid','true');
+        };
+        bar.append(axisSelect,speedBox,toggle);motion.insertBefore(bar,motion.children[1]??null);bar.after(note);
+        motion.addEventListener('toggle',()=>{if(!motion.open)this.pauseMotion('运动区已收起，已暂停。');});
       }
       if(f.motion.kind==='six_dof'){
         const pivot=detail('pivot-'+d.id,'旋转参考 · pivot / '+f.parent+' / mm',motion,false,'sub-block');
@@ -201,7 +254,7 @@ export class DeviceControls {
       if(f.motion.kind==='fixed'&&!d.elevation)motion.hidden=true;
       body.prepend(motion);
       if(crystal)body.prepend(crystal);
-      const convention=f.motion.kind==='six_dof'?'XYZ 是 '+f.parent+' 中的平移（mm）；UVW 分别绕该坐标系的固定 X、Y、Z 轴转动（deg），按 U→V→W 的演示约定组合。':
+      const convention=f.motion.kind==='six_dof'?'XYZ 是 '+f.parent+' 中的平移（mm）；UVW 分别绕该坐标系的固定 X、Y、Z 轴转动（°），按 U→V→W 的演示约定组合。':
         members.length>1?'θ 绕 '+f.parent+' 中配置的轴旋转，带动 XY 滑台及样品；X/Y 是一体台内部平移行程。旋转正方向遵循右手定则。':
         f.motion.kind==='revolute'?'绕 '+f.parent+' 中配置的轴旋转，正方向遵循右手定则；下游装配随之转动。':
         f.motion.kind==='xy_translation'?'X/Y 沿 '+f.parent+' 中配置的两条轴平移；不改变安装零位。':
@@ -223,6 +276,7 @@ export class DeviceControls {
   get selectedId(){return this.#selectedId;}
   select(id:string,notify=true){
     const selected=this.#aliases.get(id);if(!selected)return;
+    if(selected!==this.#selectedId)this.pauseMotion('已切换装置，已暂停。');
     this.#selectedId=selected;
     for(const [key,card]of this.#cards){card.hidden=key!==selected;card.open=true;}
     for(const [key,row]of this.#rows){row.setAttribute('aria-selected',String(key===selected));row.tabIndex=key===selected?0:-1;}
@@ -238,4 +292,6 @@ export class DeviceControls {
     if(!expanded){let row=this.#rows.get(this.#selectedId);while(row?.closest('ul[role=group]'))row=row.closest('ul[role=group]')!.previousElementSibling as HTMLButtonElement;if(row)this.select(row.dataset.device!);}
   }
   refresh(){this.#refresh.forEach(fn=>fn());}
+  pauseMotion(message?:string){this.#motion.pause(message);}
+  dispose(){this.pauseMotion();document.removeEventListener('visibilitychange',this.#visibility);}
 }

@@ -95,6 +95,18 @@ test('V08/V12: crystal tilt → phi scan and antiparallel alignment',async({page
   await page.locator('#apply-crystal').click();
   await expect(page.locator('#readout')).toContainText('带轴误差：30°');
   await joint(page,'rotary.phi',90);await expect(page.locator('#readout')).toContainText('带轴误差：30°');await checkViewer(page);
+  // Close the user workflow: compensate the crystal's +30 deg tilt with the hexapod,
+  // then scan phi while its ideal target stays on the common rotation axis.
+  await joint(page,'hexapod.u',-30);
+  for(const phi of [0,90,180]){
+    await joint(page,'rotary.phi',phi);
+    await expect(page.locator('#readout')).toContainText('带轴误差：0°');
+    await expect(page.locator('#readout')).toContainText('目标点：0, 200, 0');
+    await expect(page.locator('#readout')).toContainText('目标点到 φ 轴：0 mm');
+    await expect(page.locator('#readout')).toContainText('几何对齐：是');
+    await checkViewer(page);
+  }
+  await page.screenshot({path:'artifacts/g0g1-aligned-scan.png',fullPage:true});
   await resetScene(page);await openDevice(page,'sample');
   await page.getByRole('spinbutton',{name:'观察方向指标 w',exact:true}).fill('-1');
   await page.locator('#apply-direction').click();
@@ -251,7 +263,7 @@ test('Integrated XYtheta: one shared installation, a locked centered base and th
   await expect(card.locator(':scope > summary')).toContainText('XYθ 一体位移台');
   await expect(card).toHaveAttribute('data-devices','["theta","xy"]');expect(await page.locator('#device-xy').count()).toBe(0);
   await expect(card.locator('#placement-theta')).not.toHaveAttribute('open','');
-  expect(await card.locator('input').count()).toBe(6);expect(await card.locator('[data-joint]').count()).toBe(3);
+  expect(await card.locator('input').count()).toBe(7);expect(await card.locator('[data-joint]').count()).toBe(3);
   expect(await page.getByRole('spinbutton',{name:'XY 位移台 · 安装 X / mm',exact:true}).count()).toBe(0);
   await expect(base).toContainText('LAB (0, 200, 0)');
   await expect(card.locator('#part-xy')).toContainText('不移动一体台的固定基座');
@@ -308,12 +320,32 @@ test('Workbench: scene-first layout, motion-first tree inspector and presentatio
     return Math.sign(box.x-canvas.x+box.width/2-Number(dot.getAttribute('cx')));
   });
   const sides=[await labelSide()];
-  await page.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.7);await page.mouse.down({button:'right'});
+  await page.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.7);await page.mouse.down({button:'middle'});
   for(let i=1;i<=12;i++){
     await page.mouse.move(canvas.x+canvas.width*.8+i*.75,canvas.y+canvas.height*.7);
     await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));sides.push(await labelSide());
   }
-  await page.mouse.up({button:'right'});expect(new Set(sides).size).toBe(1);expect(await state(page)).toEqual(original);
+  await page.mouse.up({button:'middle'});expect(new Set(sides).size).toBe(1);expect(await state(page)).toEqual(original);
+  const panMetrics=()=>page.locator('.scene-label-layer').evaluate(layer=>{
+    const labels=Array.from(layer.querySelectorAll<HTMLElement>('.scene-label')),dots=layer.querySelectorAll('circle');
+    const selected=labels.findIndex(el=>el.dataset.selected==='true');
+    return {x:Number(dots[selected].getAttribute('cx')),y:Number(dots[selected].getAttribute('cy'))};
+  });
+  const beforePan=await panMetrics(),panX=canvas.x+canvas.width*.8,panY=canvas.y+canvas.height*.7;
+  await page.mouse.move(panX,panY);await page.mouse.down({button:'middle'});
+  await page.mouse.move(panX+80,panY-50,{steps:8});await page.mouse.up({button:'middle'});
+  await expect.poll(async()=> (await panMetrics()).x-beforePan.x).toBeGreaterThan(60);
+  await expect.poll(async()=>{
+    const a=await panMetrics();await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+    const b=await panMetrics();return Math.hypot(a.x-b.x,a.y-b.y);
+  }).toBeLessThan(.05);
+  const afterPan=await panMetrics();
+  expect(afterPan.x-beforePan.x).toBeLessThan(95);expect(afterPan.y-beforePan.y).toBeLessThan(-35);expect(afterPan.y-beforePan.y).toBeGreaterThan(-65);
+  await page.mouse.move(panX,panY);await page.mouse.down({button:'right'});
+  await page.mouse.move(panX+80,panY-50,{steps:8});await page.mouse.up({button:'right'});
+  const afterRight=await panMetrics();expect(Math.hypot(afterRight.x-afterPan.x,afterRight.y-afterPan.y)).toBeLessThan(1);
+  expect(await state(page)).toEqual(original);await checkViewer(page);
+  await expect(page.locator('.navigation-hint')).toContainText('中键拖动平移');
   expect((await diagnostics(page)).selected_device_id).toBe('hexapod');
   await openDevice(page,'theta');await joint(page,'xy.x',1);await expect(page.locator('#key-theta')).toHaveText('1 mm');
   await page.getByRole('button',{name:'样品近景'}).click();await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));await checkLabels(page);
@@ -450,4 +482,143 @@ test('Readable diagnostics: isolated coordinate families and independent directi
   await page.setViewportSize({width:390,height:844});await page.locator('#camera-sample').click();await page.evaluate(()=>window.scrollTo(0,0));await checkLabels(page);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'artifacts/readable-mobile.png'});
   await checkViewer(page);expect(errors).toEqual([]);
+});
+
+test('Continuous motion: signed speed, pause lifecycle, configured endpoints and compact controls',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.clock.install({time:new Date('2026-11-11T00:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-11-11T00:00:01Z'));await page.goto('http://127.0.0.1:4173/');
+  const bar=()=>page.locator('.device-card:not([hidden]) .motion-runner');
+  const axis=()=>bar().getByRole('combobox',{name:'连续运动轴',exact:true});
+  const speed=()=>bar().getByRole('textbox',{name:'连续运动速度',exact:true});
+  const toggle=()=>bar().locator('[data-action=motion-toggle]');
+  const note=()=>page.locator('.device-card:not([hidden]) .motion-runner-status');
+  const value=async(id:string)=>(await state(page)).snapshot.experiment_state.joints[id];
+  await openDevice(page,'hexapod');await expect(axis().locator('option')).toHaveText(['X','Y','Z','U','V','W']);
+  await expect(page.locator('[data-joint="hexapod.u"]')).toHaveAttribute('aria-label','hexapod.u / °');
+  await expect(page.locator('#readout')).toContainText('角度 °');
+  await speed().fill('+1');await toggle().click();await page.clock.runFor(1000);
+  expect(await value('hexapod.x')).toBeCloseTo(1,1);await checkViewer(page);
+  await toggle().click();const paused=await state(page);await page.clock.runFor(2000);expect(await state(page)).toEqual(paused);
+  await speed().fill('-2');await toggle().click();await page.clock.runFor(500);await toggle().click();
+  expect(await value('hexapod.x')).toBeCloseTo(0,1);
+  await axis().selectOption('hexapod.u');await expect(bar().locator('.motion-speed span')).toHaveText('°/s');
+  await speed().fill('+2');await toggle().click();await page.clock.runFor(500);
+  expect(await value('hexapod.u')).toBeCloseTo(1,1);await axis().selectOption('hexapod.y');
+  await expect(toggle()).toHaveText('开始');const switched=await state(page);await page.clock.runFor(500);expect(await state(page)).toEqual(switched);
+  await speed().fill('1');await toggle().click();
+  const manual=page.locator('[data-joint="hexapod.x"]');await manual.fill('3');await expect(toggle()).toHaveText('开始');
+  await page.clock.runFor(250);await expect(manual).toHaveValue('3');await manual.press('Tab');expect(await value('hexapod.x')).toBe(3);
+  await toggle().click();await openDevice(page,'z_stage');await expect(toggle()).toHaveText('开始');
+  const selected=await state(page);await page.clock.runFor(500);expect(await state(page)).toEqual(selected);
+  await expect(bar().locator('.motion-speed span')).toHaveText('mm/s');
+  await speed().fill('20');await toggle().click();await page.clock.runFor(500);await toggle().click();
+  expect(await value('z_stage.z')).toBeCloseTo(160,0);
+  expect(Number(await page.locator('[data-joint="z_stage.z"]').inputValue())).toBeCloseTo(16,1);
+  await speed().fill('1000');await toggle().click();await page.clock.runFor(200);
+  expect(await value('z_stage.z')).toBe(200);await expect(toggle()).toHaveText('开始');await expect(note()).toContainText('端点');
+  await speed().fill('-1000');await toggle().click();await page.clock.runFor(200);expect(await value('z_stage.z')).toBe(100);
+  await openDevice(page,'rotary');await axis().selectOption('rotary.elevation');await speed().fill('1000');await toggle().click();await page.clock.runFor(200);
+  const raised=(await state(page)).snapshot;
+  expect(raised.assembly.frames.find((f:{id:string})=>f.id==='R').mount.position_mm[1]).toBe(800);
+  expect(raised.devices.devices.find((d:{id:string})=>d.id==='rotary').visual.size_mm[1]).toBe(770);
+  expect(raised.assembly.beam.point_mm).toEqual([0,1380,0]);await expect(note()).toContainText('端点');
+  await openDevice(page,'hexapod');await speed().fill('0');await toggle().click();await expect(toggle()).toHaveText('开始');await expect(note()).toContainText('非零');
+  await speed().fill('1');await toggle().click();
+  await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true})));
+  await expect(toggle()).toHaveText('开始');await expect(note()).toContainText('离开');
+  const cached=await state(page);await page.clock.runFor(1500);expect(await state(page)).toEqual(cached);
+  await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+  await toggle().click();
+  await page.evaluate(()=>{
+    Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));
+    delete (document as unknown as {hidden?:boolean}).hidden;
+  });
+  await expect(toggle()).toHaveText('开始');await expect(note()).toContainText('后台');
+  const hiddenPause=await state(page);await page.clock.runFor(1500);expect(await state(page)).toEqual(hiddenPause);
+  await toggle().click();await page.locator('#motion-hexapod > summary').click();await page.clock.runFor(100);
+  await page.locator('#motion-hexapod > summary').click();await expect(toggle()).toHaveText('开始');
+  await toggle().click();await page.locator('#open-config').click();await expect(toggle()).toHaveText('开始');
+  await page.locator('#reset').click();await closeTools(page);const restored=await state(page);await page.clock.runFor(1500);expect(await state(page)).toEqual(restored);
+  await openDevice(page,'hexapod');await page.screenshot({path:'artifacts/motion-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.clock.runFor(100);
+  await page.evaluate(()=>{
+    const bar=document.querySelector('.device-card:not([hidden]) .motion-runner')!,view=document.querySelector('.viewport-wrap')!;
+    window.scrollBy(0,bar.getBoundingClientRect().top-view.getBoundingClientRect().height-12);
+  });await page.clock.runFor(100);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const fields=await bar().locator('select,.motion-speed,button').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top};}));
+  expect(Math.max(...fields.map(f=>f.top))-Math.min(...fields.map(f=>f.top))).toBeLessThan(2);
+  expect(fields.every(f=>f.left>=0&&f.right<=390)).toBe(true);
+  const barBox=(await bar().boundingBox())!,viewBox=(await page.locator('.viewport-wrap').boundingBox())!;
+  expect(barBox.y).toBeGreaterThanOrEqual(viewBox.y+viewBox.height);
+  await page.screenshot({path:'artifacts/motion-mobile.png'});await checkViewer(page);expect(errors).toEqual([]);
+});
+
+test('Moving labels: retain placement during continuous translation and middle-button panning',async({page})=>{
+  await page.clock.install({time:new Date('2026-11-11T00:00:00Z')});await page.clock.pauseAt(new Date('2026-11-11T00:00:01Z'));
+  await page.setViewportSize({width:1062,height:956});await page.goto('http://127.0.0.1:4173/');await openDevice(page,'hexapod');
+  const bar=page.locator('#device-hexapod .motion-runner');
+  await bar.getByRole('combobox').selectOption('hexapod.x');await bar.getByRole('textbox').fill('+1');
+  await bar.locator('button').click();await page.clock.runFor(160); // Allow the true zero-position coincidence to split once.
+  const placement=()=>page.locator('.scene-label-layer').evaluate(layer=>{
+    const labels=Array.from(layer.querySelectorAll<HTMLElement>('.scene-label')),dots=layer.querySelectorAll('circle');
+    return [labels.findIndex(el=>el.dataset.selected==='true'),labels.findIndex(el=>JSON.parse(el.dataset.members!).some((e:{role:string})=>e.role==='target'))].map(i=>{
+      const el=labels[i],box=el.getBoundingClientRect(),viewport=document.querySelector('#viewport')!.getBoundingClientRect();
+      return {x:box.x-viewport.x-Number(dots[i].getAttribute('cx')),y:box.y-viewport.y-Number(dots[i].getAttribute('cy')),hidden:el.hidden};
+    });
+  });
+  const before=await state(page),samples=[await placement()];
+  for(let i=0;i<16;i++){await page.clock.runFor(80);samples.push(await placement());}
+  const canvas=(await page.locator('#viewport canvas').boundingBox())!;
+  await page.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.7);await page.mouse.down({button:'middle'});
+  for(let i=1;i<=12;i++){
+    await page.mouse.move(canvas.x+canvas.width*.8+i*.75,canvas.y+canvas.height*.7);await page.clock.runFor(32);samples.push(await placement());
+  }
+  await page.mouse.up({button:'middle'});await bar.locator('button').click();
+  for(const sample of samples)sample.forEach((offset,i)=>{
+    expect(offset.hidden).toBe(false);expect(Math.abs(offset.x-samples[0][i].x)).toBeLessThan(1);expect(Math.abs(offset.y-samples[0][i].y)).toBeLessThan(1);
+  });
+  expect((await state(page)).snapshot.experiment_state.joints['hexapod.x']).toBeGreaterThan(before.snapshot.experiment_state.joints['hexapod.x']);
+  expect((await diagnostics(page)).selected_device_id).toBe('hexapod');await checkViewer(page);
+  await page.screenshot({path:'artifacts/moving-labels-stable.png'});
+});
+
+test('Device reset: atomically zero current motors, pause motion and respect height bounds',async({page})=>{
+  await page.clock.install({time:new Date('2026-11-11T00:00:00Z')});await page.clock.pauseAt(new Date('2026-11-11T00:00:01Z'));
+  await page.goto('http://127.0.0.1:4173/');const config=(await state(page)).snapshot;
+  const hex=['x','y','z','u','v','w'].map(key=>'hexapod.'+key);
+  hex.forEach((id,i)=>config.experiment_state.joints[id]=i+1);
+  config.experiment_state.joints['rotary.phi']=12;config.experiment_state.joints['theta.angle']=17;
+  config.experiment_state.joints['xy.x']=2;config.experiment_state.joints['xy.y']=-3;
+  await applyConfig(page,config);await openDevice(page,'hexapod');
+  const reset=()=>page.locator('.device-card:not([hidden]) [data-action=reset-motion]');
+  const bar=page.locator('#device-hexapod .motion-runner');await bar.locator('button').click();await page.clock.runFor(100);
+  const before=await state(page);await reset().click();const after=await state(page);
+  const expected=structuredClone(before.snapshot);hex.forEach(id=>expected.experiment_state.joints[id]=0);
+  expect(after.snapshot).toEqual(expected);expect(after.revision).toBe(before.revision+1);
+  await expect(bar.locator('button')).toHaveText('开始');await expect(page.locator('#motion-hexapod')).toHaveAttribute('open','');
+  await page.clock.runFor(1000);expect(await state(page)).toEqual(after);await checkViewer(page);
+  await page.screenshot({path:'artifacts/motion-reset-desktop.png'});
+  await openDevice(page,'theta');await reset().click();const centered=(await state(page)).snapshot;
+  for(const id of ['theta.angle','xy.x','xy.y'])expect(centered.experiment_state.joints[id]).toBe(0);
+  expect(centered.experiment_state.joints['rotary.phi']).toBe(12);expect(centered.experiment_state.joints['z_stage.z']).toBe(150);
+  await openDevice(page,'z_stage');await expect(reset()).toHaveText('复位');await reset().click();
+  expect((await state(page)).snapshot.experiment_state.joints['z_stage.z']).toBe(100);
+  await expect(page.locator('[data-joint="z_stage.z"]')).toHaveValue('10');await expect(page.locator('#device-z_stage .motion-runner-status')).toContainText('10 cm');
+  await openDevice(page,'rotary');const rise=page.locator('#device-rotary input[aria-label$="台面升高 / cm"]');await rise.fill('2');await rise.press('Tab');
+  await reset().click();const lowered=(await state(page)).snapshot;
+  expect(lowered.experiment_state.joints['rotary.phi']).toBe(0);expect(lowered.experiment_state.joints['z_stage.z']).toBe(100);
+  expect(lowered.assembly.frames.find((f:{id:string})=>f.id==='R').mount.position_mm[1]).toBe(700);
+  expect(lowered.devices.devices.find((d:{id:string})=>d.id==='rotary').visual.size_mm[1]).toBe(670);
+  expect(lowered.assembly.beam).toEqual(config.assembly.beam);await checkViewer(page);
+  await openDevice(page,'hexapod');await page.setViewportSize({width:390,height:844});await page.clock.runFor(100);
+  await page.evaluate(()=>{
+    const heading=document.querySelector('#motion-hexapod > summary')!,view=document.querySelector('.viewport-wrap')!;
+    window.scrollBy(0,heading.getBoundingClientRect().top-view.getBoundingClientRect().height-12);
+  });await page.clock.runFor(100);
+  const button=(await reset().boundingBox())!,heading=(await page.locator('#motion-hexapod > summary').boundingBox())!;
+  expect(button.x+button.width).toBeLessThanOrEqual(390);expect(button.y).toBeGreaterThanOrEqual(heading.y);
+  await expect(reset()).toBeVisible();await page.screenshot({path:'artifacts/motion-reset-mobile.png'});
+  await openDevice(page,'sample');expect(await reset().count()).toBe(0);
 });

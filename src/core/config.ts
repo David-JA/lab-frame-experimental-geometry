@@ -2,6 +2,7 @@ import Ajv from 'ajv';
 import schema from '../../schema/setup.schema.json';
 import { clone, SceneError, type SceneConfig } from './types';
 import { cross, fromQuat, inverseRigid, lattice, multiply, norm, normalizeQuat, point, sub, translation, unit } from './math';
+import { validateDiffraction } from '../diffraction/model';
 
 const validate = new Ajv({ allErrors: true, strict: true }).compile(schema);
 function requireThat(ok: unknown, path: string, message: string): asserts ok {
@@ -126,5 +127,6 @@ export function validatedConfig(input: unknown): SceneConfig {
   c.assembly.beam.direction=located('/assembly/beam/direction',()=>unit(c.assembly.beam.direction));
   requireThat(norm([c.assembly.beam.direction[0],c.assembly.beam.direction[1],c.assembly.beam.direction[2]-1])<1e-10,'/assembly/beam/direction','Incident beam defines LAB +Z');
   for(const s of c.assembly.supports)requireThat(known.has(s.base_frame)&&known.has(s.moving_frame),'/assembly/supports','Unknown support frame');
+  validateDiffraction(c);
   return c;
 }

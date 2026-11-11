@@ -1,6 +1,6 @@
 # 项目维护记忆
 
-面向接手维护的开发者，记录理解实现所需的稳定约定。首次使用见 [README](../README.md)；需求、任务、阶段状态、逐轮验证与验收由 [Spec](../discuss/20261109_issue38_g0_g1_minimal_spec.md) 持有，不在这里复制台账。代码与配置是运行行为的真值，本文应随相关实现变更同步。
+面向接手维护的开发者，记录理解实现所需的稳定约定。首次使用见 [README](../README.md)；需求、任务、阶段状态、逐轮验证与验收由 [G0/G1 Spec](../discuss/20261109_issue38_g0_g1_minimal_spec.md) 和[衍射预览 Spec](../discuss/20261111_diffraction_preview_spec.md)分别持有，不在这里复制台账。代码与配置是运行行为的真值，本文应随相关实现变更同步。
 
 ## 代码与配置入口
 
@@ -11,10 +11,13 @@
 | [合成示例](../examples/experimental-setup/) / [Schema](../schema/setup.schema.json) | 设备、装配、实验状态及输入结构 |
 | [参数区](../src/ui/device-controls.ts) / [页面接线](../src/main.ts) | 选择、参数编辑、配置文件与高级 JSON 编辑 |
 | [查看策略](../src/viewer/view-policy.ts) / [渲染](../src/viewer/viewer.ts) / [标注](../src/viewer/scene-labels.ts) | 图层过滤、简化外观、拾取和文字布局 |
+| [衍射计算](../src/diffraction/model.ts) / [四月参照](../src/diffraction/presets.ts) / [面板](../src/ui/diffraction-panel.ts) | 有限照明体重心、倒易激发、同一面板投影及二维 SVG |
 
 默认入口为 `lab_height_config()`；`example_config()` 保留原合成基线，可通过 `?example=synthetic` 或配置抽屉恢复。两者共用加载、校验与完整 snapshot 格式，不维护第二套计算引擎。
 
 默认配置混合图纸尺寸、安装粗测与示意部件。尺寸、参考面、更正沿革及尚未采用的搭配统一见[尺寸与高度记录](../discuss/20261110_lab_height_survey.md)；不在本文再存一张尺寸表。图纸授权范围见 [NOTICE](../NOTICE.md)。
+
+当前默认包含临时对中调节，不能据此视为实测几何；各装置参考面与高度复核由 [#2](https://github.com/David-JA/lab-frame-experimental-geometry/issues/2) 持有。照明计算用 `diffraction.sample_shape` 和样品中心，独立于放大显示的 `visual`；预览应显式给出中心相对束心偏差，避免把外形相交当成物理照明。
 
 ## 坐标和状态约定
 
@@ -35,6 +38,14 @@ XY 一体关系由 `integrated_into` 声明。加载器检查 XY 零行程基座
 样品“观察方向”与“晶体取向”分别提交，各自从当前 Scene 保留另一组已应用值，不读取另一组未应用草稿。取向用单位四元数表示旋转 `R_SC`，修改它不移动样品机械位置。普通文件载入读取独立的文件内容缓存；高级 JSON 编辑读取自身草稿，不能互相替代来源。
 
 snapshot 保存设备、装配、关节、样品和原有三个 display 开关。相机、当前选择、诊断总开关和查看预设只影响画面，不写入 snapshot。
+
+根级可选 `diffraction` 保存预览的活动对象和计算参数。缺项旧配置原样加载/导出；唯一样品和探测器可以临时使用默认值，非立方默认 primitive，多候选需明确选择。显式配置的坏 ID/不兼容 FCC 会被拒绝；修改参数使用同一原子 restore。预览开合和斑点选择不保存。`compare_states` 的 `diffraction_changed` 单独报告其变化，且计入 `configuration_changed`。
+
+预览主区的晶格常数a直接读写活动sample的`crystal.cell`，不在diffraction另存副本。立方下联动a=b=c，非立方仅更新a、保留b/c及角度；参考d由同一cell重算。编辑失焦或Enter提交，非法值恢复有效值。修改a、应用d、采用四月参照和载入配置都必须同步这些控件与预测结果；不得把a与某个(hkl)的d互相标错。
+
+现有圆斑以固定灰色和原始几何权重控制透明度，浅底上越深表示响应越强；选中提示独立描边，不修改信号本体。仍使用SVG圆斑，透明度重叠不是探测器线性强度累加。高斯核/真实强度的未来范围由[#3](https://github.com/David-JA/lab-frame-experimental-geometry/issues/3)持有，未实现。
+
+衍射核心用 `1/λ`、Å⁻¹，不含 `2π`。发射重心由机械 S 系的有限照明体积分得到，R_SC 只转晶格；照明模型尺寸与放大的视觉外形分开。直射参考始终投影固定光束中心线。预览和三维共用 D frame；四月 PONI/work/raw 转换仅在预设适配时做一次。默认实验室场景采用四月参照，旧合成场景保持原几何。面板运动中每秒采样最新姿态，暂停/限位后立即补最终结果，手动编辑/重新展开立即更新，相同revision不重算；关闭取消任务。调度复用单轴控制器的显式运行状态通知，不按静止防抖；晶格候选与机械照明分别缓存。1s采样不代表曝光积分，可能错过短暂反射。
 
 连续运动在当前装置的运动区统一选轴，位移速度mm/s、旋转°/s，位置以cm显示时也按mm/s换算。全局只运行一轴，每帧复用Scene更新；到已配置端点停止。切换装置/轴、修改速度/参数、打开配置、后台或离页时暂停，恢复后需显式开始。轴选择、速度与运行状态仅为UI状态，不随snapshot保存；不驱动真实硬件。
 
@@ -68,7 +79,7 @@ npm run test:e2e
 npm run preview
 ```
 
-[核心测试](../tests/core.test.ts)用独立数值例子核对运动学与晶体学；[展示测试](../tests/labels.test.ts)核对实际矩阵、几何接触、图层和标注；[运动时钟测试](../tests/motion.test.ts)核对速度积分、单轴互斥、限位和暂停；[浏览器流程](../tests/browser/workflows.spec.ts)核对编辑、保存恢复、选中、标签、连续运动和窄屏。具体运行结果、人工拾取覆盖和接受边界只引用 Spec，不复制测试计数、耗时、截图清单或逐轮 review 日志。
+[核心测试](../tests/core.test.ts)用独立数值例子核对运动学与晶体学；[展示测试](../tests/labels.test.ts)核对实际矩阵、几何接触、图层和标注；[运动时钟测试](../tests/motion.test.ts)核对速度积分、单轴互斥、限位和暂停；[衍射数值测试](../tests/diffraction.test.ts)核对激发、独立PONI和照明体对照；[预览调度测试](../tests/preview-refresh.test.ts)核对持续变动时采样和暂停/关闭行为；[工作台浏览器流程](../tests/browser/workflows.spec.ts)与[衍射浏览器流程](../tests/browser/diffraction.spec.ts)核对实际交互和窄屏。具体运行结果、人工拾取覆盖和接受边界只引用Spec，不复制测试计数、耗时、截图清单或逐轮review日志。
 
 E2E 当前使用 Edge 的 `msedge` channel / SwiftShader，并自行启停 `127.0.0.1:4173`；不要复用或停止用户的 5173 评审服务。其他系统需选择可用浏览器。如果进程代理为 `socks5:`，仅为测试进程追加 loopback `NO_PROXY`。Windows 沙箱中浏览器子进程可能受限，历史验证使用正常 Windows 用户边界；不据沙箱失败判定产品故障。
 

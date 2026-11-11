@@ -11,13 +11,14 @@ export class DeviceControls {
   #selectedId='';#onSelect?: (id:string)=>void;#title:HTMLElement;
   #motion:SingleAxisMotion;#motionViews:(()=>void)[]=[];
   #visibility=()=>{if(document.hidden)this.pauseMotion('页面已进入后台，已暂停。');};
-  constructor(private scene:Scene,private host:HTMLElement,private edit:(action:()=>void,input?:HTMLInputElement)=>boolean,options:{selectedId?:string;onSelect?:(id:string)=>void;motionEdit?:(action:()=>void)=>boolean}={}){
+  constructor(private scene:Scene,private host:HTMLElement,private edit:(action:()=>void,input?:HTMLInputElement)=>boolean,options:{selectedId?:string;onSelect?:(id:string)=>void;motionEdit?:(action:()=>void)=>boolean;onMotionChange?:(running:boolean)=>void}={}){
     const oldOpen=new Map(Array.from(host.querySelectorAll<HTMLDetailsElement>('details')).map(el=>[el.id,el.open]));
     const oldExpanded=new Map(Array.from(host.querySelectorAll<HTMLButtonElement>('.device-tree-row')).map(el=>[el.dataset.device!,el.getAttribute('aria-expanded')]));
     this.#onSelect=options.onSelect;host.replaceChildren();
     this.#motion=new SingleAxisMotion(options.motionEdit??edit,(id,message)=>{
       const note=Array.from(host.querySelectorAll<HTMLElement>('.motion-runner-status')).find(el=>JSON.parse(el.dataset.axes!).includes(id));
       if(note)note.textContent=message;this.#motionViews.forEach(refresh=>refresh());
+      options.onMotionChange?.(this.#motion.running);
     });
     document.addEventListener('visibilitychange',this.#visibility);
     const tree=document.createElement('ul');tree.className='device-tree';tree.setAttribute('role','tree');tree.setAttribute('aria-label','装置树');
@@ -291,6 +292,7 @@ export class DeviceControls {
     for(const row of this.#rows.values())if(row.hasAttribute('aria-expanded')){row.setAttribute('aria-expanded',String(expanded));(row.nextElementSibling as HTMLElement).hidden=!expanded;row.querySelector('.tree-toggle')!.textContent=expanded?'▾':'▸';}
     if(!expanded){let row=this.#rows.get(this.#selectedId);while(row?.closest('ul[role=group]'))row=row.closest('ul[role=group]')!.previousElementSibling as HTMLButtonElement;if(row)this.select(row.dataset.device!);}
   }
+  get motionRunning(){return this.#motion.running;}
   refresh(){this.#refresh.forEach(fn=>fn());}
   pauseMotion(message?:string){this.#motion.pause(message);}
   dispose(){this.pauseMotion();document.removeEventListener('visibilitychange',this.#visibility);}

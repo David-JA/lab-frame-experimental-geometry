@@ -3,6 +3,28 @@
   "$id": "https://lab-frame-experimental-geometry.local/setup.schema.json",
   "type": "object",
   "properties": {
+    "diffraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_id", "detector_id", "energy_keV", "spot_diameter_invA", "beam_size_mm", "sample_shape", "reflection_model", "hkl_limit", "show_hkl"],
+      "properties": {
+        "sample_id": {"type": "string"},
+        "detector_id": {"type": "string"},
+        "energy_keV": {"type": "number", "minimum": 1, "maximum": 500},
+        "spot_diameter_invA": {"type": "number", "minimum": 0.000001, "maximum": 0.2},
+        "beam_size_mm": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 0.0001, "maximum": 100}},
+        "sample_shape": {
+          "type": "object", "additionalProperties": false, "required": ["kind", "size_mm"],
+          "properties": {
+            "kind": {"enum": ["cylinder", "box"]},
+            "size_mm": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number", "minimum": 0.0001, "maximum": 10000}}
+          }
+        },
+        "reflection_model": {"enum": ["fcc", "primitive"]},
+        "hkl_limit": {"type": "integer", "minimum": 1, "maximum": 12},
+        "show_hkl": {"type": "boolean"}
+      }
+    },
     "schema_version": {
       "const": 1
     },

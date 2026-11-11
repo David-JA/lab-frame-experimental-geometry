@@ -2,6 +2,7 @@ import { load_scene, SceneError, type Scene } from './core';
 import { example_config, lab_height_config } from './example';
 import { GeometryViewer } from './viewer/viewer';
 import { DeviceControls } from './ui/device-controls';
+import { DiffractionPanel } from './ui/diffraction-panel';
 import type { DiagnosticPreset } from './viewer/view-policy';
 import './style.css';
 
@@ -18,6 +19,7 @@ const byId=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 let scene:Scene=load_scene(new URLSearchParams(location.search).get('example')==='synthetic'?example_config():lab_height_config()),viewer:GeometryViewer|undefined;
 let deviceControls:DeviceControls,diagnosticView=false;
 let diagnosticPreset:DiagnosticPreset='crystal';
+let diffractionPanel:DiffractionPanel|undefined;
 try{viewer=new GeometryViewer(byId('viewport'),{onSelect:id=>deviceControls?.select(id),onInspectCoincident:position=>showCoincident(position)});}catch(error){byId('viewport').textContent='无法初始化 WebGL，数值查询仍可用。'+String(error);}
 const fmt=(n:number)=>Math.abs(n)<1e-9?'0':Number(n.toFixed(6)).toString();
 const xyz=(v:number[])=>v.map(fmt).join(', ');
@@ -34,7 +36,7 @@ function change(action:()=>void,input?:HTMLInputElement,automatic=false):boolean
 function buildControls(){
   const c=scene.save_state();
   const selectedId=deviceControls?.selectedId;deviceControls?.dispose();
-  deviceControls=new DeviceControls(scene,byId('devices'),change,{selectedId,onSelect:()=>render(),motionEdit:action=>change(action,undefined,true)});byId('display').replaceChildren();
+  deviceControls=new DeviceControls(scene,byId('devices'),change,{selectedId,onSelect:()=>render(),motionEdit:action=>change(action,undefined,true),onMotionChange:running=>diffractionPanel?.update(running)});byId('display').replaceChildren();
   for(const [key,label]of [['frames','装置坐标（含实验室）'],['crystal','晶体坐标 X/Y/Z'],['lattice','晶格方向 [100]/[010]/[001]']] as const){
     const el=document.createElement('label');el.className='check';const input=document.createElement('input');input.type='checkbox';input.checked=c.experiment_state.display[key];input.setAttribute('aria-label',label);
     input.addEventListener('change',()=>change(()=>{const next=scene.save_state();next.experiment_state.display[key]=input.checked;scene.restore_state(next);}));
@@ -43,6 +45,7 @@ function buildControls(){
 }
 function render(){
   const c=scene.save_state();viewer?.update(scene);viewer?.set_view({selectedDeviceId:deviceControls.selectedId,diagnostics:diagnosticView,diagnosticPreset});
+  diffractionPanel?.update(deviceControls.motionRunning);
   byId('diagnostic-guide').hidden=!diagnosticView;
   const descriptions:Record<DiagnosticPreset,string>={crystal:'晶体坐标：三条相互垂直的 X/Y/Z 轴。箭头长度仅供示意。',lattice:'晶格方向：[100]/[010]/[001] 不一定相互垂直，箭头长度不代表晶格常数。',devices:'实验室与当前装置的坐标；φ/θ 表示转轴。',all:'全部图层叠加，适合逐项核对；日常观察建议只看一类。'};
   const enabled=diagnosticPreset==='all'?Object.values(c.experiment_state.display).some(Boolean):c.experiment_state.display[diagnosticPreset==='devices'?'frames':diagnosticPreset];
@@ -131,6 +134,9 @@ byId('export').onclick=()=>{
 byId('camera-all').onclick=()=>viewer?.reset_camera();byId('camera-apparatus').onclick=()=>viewer?.focus_apparatus();byId('camera-sample').onclick=()=>viewer?.focus_sample();
 window.addEventListener('pagehide',event=>{
   deviceControls?.pauseMotion('已离开页面，已暂停。');
-  if(!event.persisted){deviceControls?.dispose();viewer?.dispose();}
+  if(!event.persisted){deviceControls?.dispose();viewer?.dispose();diffractionPanel?.dispose();}
 });
+const diffractionEntry=document.createElement('button');diffractionEntry.id='open-diffraction';diffractionEntry.textContent='衍射预览';byId('open-config').before(diffractionEntry);
+const diffractionHost=document.createElement('aside');diffractionHost.id='diffraction-panel';document.querySelector('.workbench')!.append(diffractionHost);
+diffractionPanel=new DiffractionPanel(diffractionHost,diffractionEntry,()=>scene,next=>change(()=>{scene.restore_state(next);buildControls();}));
 buildControls();editor.value=JSON.stringify(scene.save_state(),null,2);render();viewer?.focus_apparatus();status('配置已加载');

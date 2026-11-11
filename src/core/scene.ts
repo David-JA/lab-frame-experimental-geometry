@@ -142,7 +142,8 @@ export function compare_states(inputA:unknown,inputB:unknown){
   const a=load_scene(inputA),b=load_scene(inputB),ca=a.save_state(),cb=b.save_state();
   if(stable(topology(ca))!==stable(topology(cb)))throw new SceneError('STATE_TOPOLOGY_MISMATCH','','Snapshot IDs, joint roles/units or parent graph differ');
   return {
-    frame:'LAB',configuration_changed:stable({devices:ca.devices,assembly:ca.assembly})!==stable({devices:cb.devices,assembly:cb.assembly}),
+    frame:'LAB',configuration_changed:stable({devices:ca.devices,assembly:ca.assembly,diffraction:ca.diffraction})!==stable({devices:cb.devices,assembly:cb.assembly,diffraction:cb.diffraction}),
+    diffraction_changed:stable(ca.diffraction)!==stable(cb.diffraction),
     display_changed:stable(ca.experiment_state.display)!==stable(cb.experiment_state.display),
     joint_delta:Object.fromEntries(ca.assembly.joints.map(j=>[j.id,{a:ca.experiment_state.joints[j.id],b:cb.experiment_state.joints[j.id],delta:cb.experiment_state.joints[j.id]-ca.experiment_state.joints[j.id],unit:j.unit}])),
     device_delta:Object.fromEntries(ca.devices.devices.map(d=>[d.id,{

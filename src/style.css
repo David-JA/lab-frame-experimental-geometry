@@ -91,6 +91,23 @@ textarea{width:100%;min-height:240px;height:34dvh;font:12px/1.65 Consolas,monosp
 input[aria-invalid=true]{border-color:#c54a3b}a{color:var(--accent)}.file{font-size:12px;color:var(--muted)}.file input{max-width:100%;font-size:12px;margin-top:6px;min-height:0}
 #diagnostics{font-size:12px;color:var(--muted);overflow-wrap:anywhere;margin-top:10px}
 .coincident-list{list-style:none;margin:12px 0;padding:0}.coincident-list li{padding:12px 0;border-bottom:1px solid var(--line)}.coincident-list strong{font-size:14px}.coincident-list p{font-size:12px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.workbench.diffraction-open{grid-template-columns:270px minmax(240px,1fr) minmax(330px,420px)}
+.diffraction-panel{overflow:auto;min-width:0;padding:16px;border-left:1px solid var(--line);background:#fff}
+.diffraction-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.diffraction-heading h2{margin:0 0 4px;font-size:16px}.diffraction-heading button{font-size:12px}
+.diffraction-status{font-size:13px;min-height:42px;line-height:1.6;color:#304d66;margin:14px 0 3px}
+#dp-plot{display:block;width:100%;height:auto;font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;overflow:visible}
+.diffraction-key{margin:0 0 16px;font-size:11px}.spot-key{color:#202020}.direct-key{color:#626d77;margin-left:10px}
+.diffraction-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 10px;margin:10px 0}
+.diffraction-fields>label{display:flex;flex-direction:column;align-items:flex-start;gap:6px;font-size:12px;color:#46535e;min-width:0}
+.diffraction-fields input[type=number],.diffraction-fields select{width:100%;min-width:0;font-size:13px}
+.diffraction-fields>label.check{flex-direction:row;align-items:center;align-self:end;min-height:36px;margin:0}
+.diffraction-panel select{max-width:100%;min-width:0;font-size:12px}.diffraction-pick{display:flex;gap:10px;align-items:center;font-size:12px;margin:18px 0 8px}.diffraction-pick select{flex:1}
+.diffraction-detail{white-space:pre-line;font-size:12px;line-height:1.8;padding:10px;background:#f4f7f9;border-radius:4px;min-height:60px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.diffraction-indices{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.diffraction-indices input[type=number]{width:100%}
+.diffraction-panel .parameter{font-size:12px}.diffraction-panel .parameter input{width:130px}.diffraction-panel .parameter select{max-width:200px}
+.diffraction-panel button{font-size:12px}.diffraction-caveat{border-top:1px solid var(--line);padding-top:12px;margin-top:20px}.diffraction-hit{cursor:pointer}
+@media(min-width:1500px){.workbench.diffraction-open{grid-template-columns:280px minmax(0,1fr) 440px}}
+@media(min-width:721px) and (max-width:1100px){.workbench.diffraction-open{grid-template-columns:250px minmax(0,1fr);overflow:auto}.diffraction-open .left{grid-row:1 / 3}.diffraction-open .viewport-wrap{min-height:420px}.diffraction-panel{grid-column:2;border-top:1px solid var(--line);overflow:visible}.diffraction-open #dp-plot{max-width:500px;margin:auto}}
 @media(min-width:1500px){.workbench{grid-template-columns:280px minmax(0,1fr)}}
 @media(max-width:720px){
   .diagnostic-guide{padding:6px 10px;gap:5px 10px}.diagnostic-guide>span{order:3;flex-basis:100%;min-width:0}.diagnostic-guide button{margin-left:auto}
@@ -99,4 +116,5 @@ input[aria-invalid=true]{border-color:#c54a3b}a{color:var(--accent)}.file{font-s
   .toolbar{padding:6px 9px;gap:7px}.camera-actions{gap:4px}.toolbar button{padding:4px 7px;font-size:12px;min-height:30px}.selected-caption{display:none}.diagnostic-toggle{font-size:12px}
   .key-readings{padding:9px 10px 6px;gap:4px 8px}.key-readings strong{font-size:15px}.key-readings>div>span{font-size:11px}.key-readings>button{padding:3px;font-size:11px;min-height:28px}#target-summary{font-size:11px;line-height:1.6}.navigation-hint{display:none}.workspace-status{padding:5px 10px;min-height:27px}.scene-label{max-width:170px}.scene-label-row{gap:2px 6px}
   .workspace-drawer{width:100vw;padding:14px}.device-inspector{margin-top:14px}.device-tree-row{min-height:33px}
+  .diffraction-panel{order:1;border-left:0;border-bottom:1px solid var(--line);padding:14px 12px;overflow:visible}.diffraction-open .left{order:2}.diffraction-open .viewport-wrap{position:relative;top:auto}.diffraction-fields{gap:12px}.diffraction-heading h2{font-size:16px}
 }

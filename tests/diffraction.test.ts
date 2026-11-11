@@ -173,6 +173,26 @@ describe('diffraction numerical contracts DP01–DP06',()=>{
     expect(april.energy_keV).toBeCloseTo(HC_KEV_A/0.1265,10);
   });
 });
+describe('illuminated source distance',()=>{
+  it('uses the illuminated centroid, follows motion, and clears absent or unresolved illumination',()=>{
+    const c=lab_height_config(),f=c.assembly.frames.find(f=>f.id==='D')!;
+    f.mount={position_mm:[12,-6,25],quaternion_xyzw:[0,.6,0,.8]};
+    const s=load_scene(c),p=c.diffraction!,model=new DiffractionModel(),initial=model.compute(s,p);
+    const panelZ=detectorSupport(c,'detector')!.frame.mount.position_mm[2]+25;
+    expect(initial.source_normal_distance_mm).toBeCloseTo(.96*12+.28*panelZ,9);
+    s.set_joint_value('hexapod.z',30);const moved=model.compute(s,p);
+    expect(initial.source_normal_distance_mm!-moved.source_normal_distance_mm!).toBeCloseTo(8.4,9);
+    p.sample_shape={kind:'box',size_mm:[2,2,2]};p.beam_size_mm=[2,.2];s.set_joint_value('hexapod.x',.5);
+    const partial=model.compute(s,p);close(partial.illumination.centroid_lab_mm!,[.25,1380,30],1e-8);
+    expect(s.get_sample_point('sample','center').position[0]).toBeCloseTo(.5,10);
+    expect(partial.source_normal_distance_mm).toBeCloseTo(.96*(12-.25)+.28*(panelZ-30),9);
+    s.set_joint_value('hexapod.x',5);const dark=model.compute(s,p);
+    expect(dark.illumination.status).toBe('outside');expect(dark.source_normal_distance_mm).toBeUndefined();
+    s.set_joint_value('hexapod.x',0);p.sample_shape={kind:'cylinder',size_mm:[.0001,.0001,.01]};p.beam_size_mm=[.2,.2];
+    const unresolved=model.compute(s,p);expect(unresolved.illumination.status).toBe('unresolved');expect(unresolved.source_normal_distance_mm).toBeUndefined();
+  });
+});
+
 describe('live ideal model DP07',()=>{
   it('reproduces the screenshot miss and verifies the raised laboratory alignment without replacing its assembly',()=>{
     const c=lab_height_config(),s=load_scene(c),model=new DiffractionModel(),p=c.diffraction!;

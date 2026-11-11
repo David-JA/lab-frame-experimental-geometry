@@ -87,7 +87,7 @@ export function illumination(scene: Scene, p: DiffractionSettings, resolution=32
   return {status:'lit',volume_mm3:length*p.beam_size_mm[0]*p.beam_size_mm[1]/resolution**2,centroid_lab_mm:scale(moment,1/length),resolution};
 }
 export interface Spot extends Reflection { u:number;v:number;radius_mm:number }
-export interface Preview { revision:number;illumination:Illumination;spots:Spot[];excited_count:number;panel:Panel;direct?:{u:number;v:number;on_panel:boolean};duration_ms:number }
+export interface Preview { revision:number;illumination:Illumination;spots:Spot[];excited_count:number;panel:Panel;source_normal_distance_mm?:number;direct?:{u:number;v:number;on_panel:boolean};duration_ms:number }
 export class DiffractionModel {
   #candidateKey='';#candidates:ReturnType<typeof enumerateReflections>=[];#lightKey='';#light?:Illumination;
   compute(scene:Scene,p:DiffractionSettings):Preview {
@@ -105,14 +105,15 @@ export class DiffractionModel {
       this.#light=light;this.#lightKey=lightKey;
     }
     const light=this.#light!,panel=detectorPanel(scene,p.detector_id),spots:Spot[]=[],source=light.centroid_lab_mm;
+    const source_normal_distance_mm=source?Math.abs(dot(panel.normal,sub(panel.center,source))):undefined;
     let excited_count=0;const lambda=HC_KEV_A/p.energy_keV,m=scene.get_frame_transform('LAB',sample.crystal!.frame).matrix;
     if(source)for(const candidate of this.#candidates){
       const g_lab=direction(m,candidate.g),e=excite(g_lab,lambda,p.spot_diameter_invA);if(e.weight<=0)continue;excited_count++;
       const hit=projectRay(panel,source,e.direction_lab);if(!hit?.on_panel)continue;
-      spots.push({hkl:candidate.hkl,g_lab,d_A:candidate.d_A,...e,two_theta_deg:Math.acos(Math.max(-1,Math.min(1,e.direction_lab[2])))*180/Math.PI,u:hit.u,v:hit.v,radius_mm:Math.abs(dot(panel.normal,sub(panel.center,source)))*lambda*e.section_radius_invA});
+      spots.push({hkl:candidate.hkl,g_lab,d_A:candidate.d_A,...e,two_theta_deg:Math.acos(Math.max(-1,Math.min(1,e.direction_lab[2])))*180/Math.PI,u:hit.u,v:hit.v,radius_mm:source_normal_distance_mm!*lambda*e.section_radius_invA});
     }
     spots.sort((a,b)=>b.weight-a.weight||a.hkl.join(',').localeCompare(b.hkl.join(',')));
     const direct=projectRay(panel,c.assembly.beam.point_mm,c.assembly.beam.direction);
-    return {revision:scene.revision,illumination:light,spots,excited_count,panel,direct,duration_ms:performance.now()-started};
+    return {revision:scene.revision,illumination:light,spots,excited_count,panel,source_normal_distance_mm,direct,duration_ms:performance.now()-started};
   }
 }

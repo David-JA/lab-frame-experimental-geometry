@@ -20,9 +20,9 @@ export class DiffractionPanel {
 <p id="dp-status" class="diffraction-status" role="status"></p><p class="small">运动中每秒更新一次，暂停后更新最终姿态。</p><p id="dp-light-info" class="small"></p>
 <svg id="dp-plot" viewBox="0 0 500 500" role="img" aria-label="预测衍射图，raw 左上像素坐标"></svg>
 <p class="small diffraction-key"><span class="spot-key">●</span> 预测反射：越亮表示几何响应越强 <span class="direct-key">⊕</span> 直射束位置 · raw 左上原点</p>
-<div class="diffraction-fields"><label>能量 / keV<input id="dp-energy" type="number" min="1" max="500" step="any"></label><div class="diffraction-readout"><span>PONI 法向距离 / mm</span><output id="dp-normal-distance" aria-label="PONI 法向距离">—</output></div><label><span>晶格常数 ${math('a','a')} / ${math(String.raw`\text{\AA}`,'Å')}</span><input id="dp-cell-a" type="number" min="0" step="0.0001"></label><label><span>倒易斑点直径 / ${math(String.raw`\text{\AA}^{-1}`,'Å⁻¹')}</span><input id="dp-diameter" type="number" min="0" max="0.2" step="0.01"></label><label class="check"><input id="dp-labels" type="checkbox">显示 HKL</label></div><p id="dp-lattice-note" class="small"></p>
+<div class="diffraction-fields"><label>能量 / keV<input id="dp-energy" type="number" min="1" max="500" step="any"></label><div class="diffraction-readout"><span>受照体积重心到平板的<br>垂直距离 / mm</span><output id="dp-normal-distance" aria-label="受照体积重心到平板的垂直距离">—</output></div><label><span>晶格常数 ${math('a','a')} / ${math(String.raw`\text{\AA}`,'Å')}</span><input id="dp-cell-a" type="number" min="0" step="0.0001"></label><label><span>倒易斑点直径 / ${math(String.raw`\text{\AA}^{-1}`,'Å⁻¹')}</span><input id="dp-diameter" type="number" min="0" max="0.2" step="0.01"></label><label class="check"><input id="dp-labels" type="checkbox">显示 HKL</label></div><p id="dp-lattice-note" class="small"></p>
 <p class="small">能量和照明尺寸的增减箭头每次调整 1 个对应单位；也可直接输入小数。</p>
-<p class="small">换距或横移请调整左侧探测器支撑架的固定位置（LAB X/Z）。PONI 距离从光束标定参考点沿平板法线量取。</p>
+<p class="small">换距或横移请调整左侧探测器支撑架的固定位置（LAB X/Z）。该读数从当前受照体积重心垂直量到平板，与衍射图使用同一发射点；没有可用重心时显示“—”。</p>
 <label class="diffraction-pick">查看反射 <select id="dp-spots" aria-label="查看预测反射"></select></label><div id="dp-detail" class="diffraction-detail">点击图中斑点或选择反射，查看详情。</div>
 <details class="info-card" id="dp-advanced"><summary>晶体、照明模型与计算范围</summary>
 <div class="diffraction-fields"><label>样品<select id="dp-sample"></select></label><label>探测器<select id="dp-detector"></select></label></div><button id="dp-objects">应用预览对象</button><button id="dp-enable-support" hidden>按当前安装建立支撑架</button>
@@ -36,8 +36,8 @@ export class DiffractionPanel {
 <label class="parameter">样品形状<select id="dp-shape"><option value="cylinder">圆柱</option><option value="box">长方体</option></select></label>
 <div class="diffraction-fields"><label id="dp-size-x-label">直径 / mm<input id="dp-size-x" type="number" min="0.0001" max="10000" step="any"></label><label id="dp-size-y-label">Y 尺寸 / mm<input id="dp-size-y" type="number" min="0.0001" max="10000" step="any"></label><label>Z 高度 / mm<input id="dp-size-z" type="number" min="0.0001" max="10000" step="any"></label><label>光束宽 / mm<input id="dp-beam-x" type="number" min="0.0001" max="100" step="any"></label><label>光束高 / mm<input id="dp-beam-y" type="number" min="0.0001" max="100" step="any"></label><label>每轴最大 |hkl|<input id="dp-limit" type="number" min="1" max="12" step="1"></label></div><button id="dp-apply-shape">应用照明与范围</button>
 <p id="dp-source" class="small"></p></details>
-<details class="info-card" id="dp-reference"><summary>参照参数与示例</summary><p class="small">四月参照：${math(String.raw`\lambda=0.1265\,\text{\AA}`,'λ=0.1265 Å')}，约 98.0112 keV；${math('4288^2','4288²')} / 0.1 mm 像素，含标定倾角。${math(String.raw`a=3.59033485\,\text{\AA}`,'a=3.59033485 Å')} 是借用的晶格参考；样品高3 mm、倒易直径默认 ${math(String.raw`0.1\,\text{\AA}^{-1}`,'0.1 Å⁻¹')} 为可调演示值。取向沿用当前设置。</p><button id="dp-april">采用四月参照参数</button><p class="small">保留支撑架位置、装置运动与样品安装，更新平板标定、像素配置、晶格及照明参数。</p>
-<h3>低阶带轴骨架参考</h3><p id="dp-skeleton-context" class="small"></p><p class="small">按理想 FCC、样品居中、${math('[100]','[100]')} 或 ${math('[110]','[110]')} 正对光束且 ${math('[001]','[001]')} 向上计算，不改变当前姿态。临界直径只表示模型允许反射出现，不是实测峰宽；表中仅检查斑点中心是否落在面板内。</p>
+<details class="info-card" id="dp-reference"><summary>参照参数与示例</summary><p class="small">四月参照：${math(String.raw`\lambda=0.1265\,\text{\AA}`,'λ=0.1265 Å')}，约 98.0112 keV；${math('4288^2','4288²')} / 0.1 mm 像素，含标定倾角。${math(String.raw`a=3.59033485\,\text{\AA}`,'a=3.59033485 Å')} 是借用的晶格参考；样品高3 mm、倒易直径默认 ${math(String.raw`0.1\,\text{\AA}^{-1}`,'0.1 Å⁻¹')} 为可调演示值。取向沿用当前设置。</p><p class="small">标定参考点到平板的垂直距离：<output id="dp-calibration-distance" aria-label="标定参考点到平板的垂直距离">—</output> mm，对应 pyFAI 的 dist。标定参考点固定，不随样品移动。</p><button id="dp-april">采用四月参照参数</button><p class="small">保留支撑架位置、装置运动与样品安装，更新平板标定、像素配置、晶格及照明参数。</p>
+<h3>低阶带轴骨架参考</h3><p id="dp-skeleton-context" class="small"></p><p class="small">按理想 FCC、样品位于固定标定参考点、${math('[100]','[100]')} 或 ${math('[110]','[110]')} 正对光束且 ${math('[001]','[001]')} 向上计算，不改变当前姿态。临界直径只表示模型允许反射出现，不是实测峰宽；表中仅检查斑点中心是否落在面板内。</p>
 <table class="diffraction-reference-table"><thead><tr><th>带轴 / 反射组</th><th>临界直径<br>${math(String.raw`\text{\AA}^{-1}`,'Å⁻¹')}</th><th>面板内<br>中心数</th></tr></thead><tbody id="dp-skeleton-rows"></tbody></table><p id="dp-skeleton-result" class="small"></p>
 <button id="dp-demo">载入理想对中示例（替换当前配置）</button><p class="small">示例采用合成装配与取向，可看到 (200) 反射；不是四月实测姿态。</p></details>
 <p class="small diffraction-caveat">近似模型：均匀光束、单点发射、有限倒易球局部截面。用途是检查几何变化，不替代标定或实测信号。</p>`;
@@ -109,7 +109,7 @@ export class DiffractionPanel {
       select.value=selected??previous;
     }
     for(const id of ['energy','cell-a','diameter','labels','model','reset','apply-shape'])this.el<HTMLInputElement|HTMLButtonElement>(id).disabled=!p;
-    this.el('normal-distance').textContent=p?numberText(detectorNormalDistance(c,p.detector_id),8):'—';
+    this.el('calibration-distance').textContent=p?numberText(Math.abs(detectorNormalDistance(c,p.detector_id)),8):'—';
     this.el('enable-support').hidden=!p||!!detectorSupport(c,p.detector_id);
     if(!p){this.el<HTMLDetailsElement>('advanced').open=true;this.spacing();return;}
     const cell=c.devices.devices.find(d=>d.id===p.sample_id)!.crystal!.cell;
@@ -140,7 +140,7 @@ export class DiffractionPanel {
       this.el('skeleton-context').textContent='此参考适用于理想 FCC 立方晶格；请先选择预览对象并采用相应点阵模型。';return;
     }
     const k=p.energy_keV/HC_KEV_A,panel=detectorPanel(scene,p.detector_id),a=cell.a;
-    this.el('skeleton-context').innerHTML=`随当前设置更新：能量 ${numberText(p.energy_keV,4)} keV，${math(String.raw`a=${numberText(a,8)}\,\text{\AA}`,`a=${numberText(a,8)} Å`)}，PONI 法向距离 ${numberText(detectorNormalDistance(c,p.detector_id),3)} mm；倒易直径 ${math(String.raw`D=${numberText(p.spot_diameter_invA,6)}\,\text{\AA}^{-1}`,`D=${numberText(p.spot_diameter_invA,6)} Å⁻¹`)}。`;
+    this.el('skeleton-context').innerHTML=`随当前设置更新：能量 ${numberText(p.energy_keV,4)} keV，${math(String.raw`a=${numberText(a,8)}\,\text{\AA}`,`a=${numberText(a,8)} Å`)}；倒易直径 ${math(String.raw`D=${numberText(p.spot_diameter_invA,6)}\,\text{\AA}^{-1}`,`D=${numberText(p.spot_diameter_invA,6)} Å⁻¹`)}。`;
     const groups:{zone:'100'|'110';name:string;indices:Vec3[]}[]=[
       {zone:'100',name:'{200}',indices:[[0,2,0],[0,-2,0],[0,0,2],[0,0,-2]]},
       {zone:'100',name:'{220}',indices:[[0,2,2],[0,2,-2],[0,-2,2],[0,-2,-2]]},
@@ -174,6 +174,7 @@ export class DiffractionPanel {
     const select=this.el<HTMLSelectElement>('spots');select.replaceChildren(new Option('请选择反射',''));
     this.el('detail').textContent='点击图中斑点或选择反射，查看详情。';this.el('source').textContent='';this.el('light-info').textContent='';this.host.dataset.revision=String(r?.revision??-1);
     this.host.dataset.result=JSON.stringify({revision:-1,spots:[]});this.host.dataset.spotCount='0';this.host.dataset.illumination='unavailable';
+    this.el('normal-distance').textContent=r?.source_normal_distance_mm!==undefined?numberText(r.source_normal_distance_mm,8):'—';
     if(!r)return;
     if(p){
       const scene=this.getScene(),c=scene.save_state(),center=scene.get_sample_point(p.sample_id,'center').position,beam=c.assembly.beam.point_mm;
@@ -215,7 +216,7 @@ export class DiffractionPanel {
     const annotation=p?.show_hkl&&labels<r.spots.length?`；${r.spots.length-labels} 个标签未展开，可从列表查看`:'';
     this.message(light.status==='outside'?'光束未照到样品。':light.status==='unresolved'?'交叠低于当前采样分辨率，暂不生成信号。':r.spots.length?`面板内 ${r.spots.length} 个预测反射${annotation}`:r.excited_count?'有反射满足衍射条件，但均落在面板外。':'当前姿态下没有反射满足衍射条件。');
     this.el('source').textContent=(light.centroid_lab_mm?`发射重心 LAB (${light.centroid_lab_mm.map(v=>numberText(v,4)).join(', ')}) mm；交叠体积约 ${numberText(light.volume_mm3,6)} mm³。`:'')+` 体积积分 ${light.resolution}×${light.resolution}；枚举各指标 −${p?.hkl_limit}…${p?.hkl_limit}。`;
-    this.host.dataset.result=JSON.stringify({revision:r.revision,source:light.centroid_lab_mm,spots:r.spots.map(s=>({hkl:s.hkl,u:s.u,v:s.v,weight:s.weight}))});
+    this.host.dataset.result=JSON.stringify({revision:r.revision,source:light.centroid_lab_mm,source_normal_distance_mm:r.source_normal_distance_mm,spots:r.spots.map(s=>({hkl:s.hkl,u:s.u,v:s.v,weight:s.weight}))});
   }
   dispose(){this.#refresh.dispose();}
 }

@@ -295,7 +295,8 @@ test('Detector support X/Z positioning preserves calibration and reports normal 
   await page.locator('#camera-all').click();await page.screenshot({path:'artifacts/detector-support-position.png'});
   await apply(moved);expect(await current()).toEqual(moved);
   const beamShift=structuredClone(moved);beamShift.assembly.beam.point_mm[0]+=10;await apply(beamShift);
-  expect(Number(await distance.textContent())-initial).toBeCloseTo(56.8,5);
+  await expect(distance).toHaveText('—');
+  expect(Number(await page.locator('#dp-calibration-distance').textContent())-initial).toBeCloseTo(56.8,5);
   const diagnostics=JSON.parse((await page.locator('#diagnostics').getAttribute('data-diagnostics'))!);
   expect(diagnostics.max_detector_plane_error_mm).toBeLessThan(1e-8);expect(diagnostics.max_world_matrix_error).toBeLessThan(1e-8);
   await page.locator('.device-tree-row[data-device="detector"]').click();
@@ -307,4 +308,33 @@ test('Detector support X/Z positioning preserves calibration and reports normal 
   await page.locator('.device-tree-row[data-device="detector"]').click();await page.locator('#placement-detector').evaluate(el=>(el as HTMLDetailsElement).open=true);
   await expect(page.locator('#placement-detector')).toContainText('架内偏移 (26, 42, 65)');
   await expect(page.locator('#placement-detector')).toContainText('安装四元数 (-0.424264, 0.424264, 0.565685, 0.565685)');
+});
+
+
+test('Illuminated centroid distance follows manual and continuous motion, with no stale value when dark',async({page})=>{
+  await page.clock.install({time:new Date('2026-11-11T00:00:00Z')});await page.clock.pauseAt(new Date('2026-11-11T00:00:01Z'));
+  await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
+  const snapshot=()=>page.locator('#readout').evaluate(el=>JSON.parse((el as HTMLElement).dataset.state!).snapshot);
+  const result=()=>page.locator('#diffraction-panel').evaluate(el=>JSON.parse((el as HTMLElement).dataset.result!));
+  const config=await snapshot();config.assembly.frames.find((f:{id:string})=>f.id==='D').mount={position_mm:[12,-6,25],quaternion_xyzw:[0,.6,0,.8]};
+  config.diffraction.sample_shape={kind:'box',size_mm:[2,2,2]};config.diffraction.beam_size_mm=[2,.2];
+  await page.locator('#open-config').click();await page.locator('#json-settings').evaluate(el=>(el as HTMLDetailsElement).open=true);await page.locator('#config').fill(JSON.stringify(config));await page.locator('#restore').click();await page.locator('#close-drawer').click();
+  const readout=page.locator('#dp-normal-distance'),calibration=page.locator('#dp-calibration-distance');
+  await expect(readout).toHaveAttribute('aria-label','受照体积重心到平板的垂直距离');const initial=Number(await readout.textContent()),reference=await calibration.textContent();
+  await page.locator('.device-tree-row[data-device="hexapod"]').click();
+  const joint=async(id:string,value:number)=>{const input=page.locator('[data-joint="'+id+'"]');await input.fill(String(value));await input.press('Tab');};
+  await joint('hexapod.z',30);expect(initial-Number(await readout.textContent())).toBeCloseTo(8.4,6);
+  await joint('hexapod.x',.5);expect((await result()).source[0]).toBeCloseTo(.25,8);
+  expect(initial-Number(await readout.textContent())).toBeCloseTo(8.64,6);await expect(calibration).toHaveText(reference!);
+  const bar=page.locator('#device-hexapod .motion-runner');await bar.getByRole('combobox').selectOption('hexapod.z');await bar.getByRole('textbox').fill('+2');
+  const before=Number(await readout.textContent());await bar.locator('button').click();await page.clock.runFor(1100);
+  await expect(bar.locator('button')).toHaveText('暂停');expect(Number(await readout.textContent())).toBeLessThan(before-.4);
+  expect(Number(await readout.textContent())).toBeCloseTo((await result()).source_normal_distance_mm,7);
+  await bar.locator('button').click();const stopped=await snapshot();
+  expect(initial-Number(await readout.textContent())).toBeCloseTo(.24+.28*stopped.experiment_state.joints['hexapod.z'],6);
+  await joint('hexapod.x',5);await expect(page.locator('#diffraction-panel')).toHaveAttribute('data-illumination','outside');await expect(readout).toHaveText('—');await expect(calibration).toHaveText(reference!);
+  await joint('hexapod.x',0);await expect(readout).not.toHaveText('—');
+  await readout.scrollIntoViewIfNeeded();await page.screenshot({path:'artifacts/illuminated-distance-desktop.png'});
+  await page.setViewportSize({width:390,height:844});await readout.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'artifacts/illuminated-distance-mobile.png'});
 });

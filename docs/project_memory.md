@@ -1,6 +1,6 @@
 # 项目维护记忆
 
-面向接手维护的开发者，记录理解实现所需的稳定约定。首次使用见 [README](../README.md)；需求、任务、阶段状态、逐轮验证与验收由 [G0/G1 Spec](../discuss/20261109_issue38_g0_g1_minimal_spec.md) 和[衍射预览 Spec](../discuss/20261111_diffraction_preview_spec.md)分别持有，不在这里复制台账。代码与配置是运行行为的真值，本文应随相关实现变更同步。
+面向接手维护的开发者，记录理解实现所需的稳定约定。首次使用见 [README](../README.md)；已完成阶段的需求、任务、逐轮验证与验收由归档的[G0/G1 Spec](./archive/20261109_issue38_g0_g1_minimal_spec.md)和[衍射预览 Spec](./archive/20261111_diffraction_preview_spec.md)分别持有，不在这里复制台账。归档导航见[docs/archive](./archive/README.md)，旧discuss地址只留短入口。代码与配置是运行行为的真值，本文应随相关实现变更同步。
 
 ## 代码与配置入口
 

@@ -29,7 +29,7 @@ Lab-Frame Experimental Geometry 面向 **SSRF-BL12SW** 的单晶衍射实验，�
 
 默认实验室配置借用四月能量、晶格参考及探测器标定，装置高度仍是粗测与示意。当前基础台面770 mm、Z平台20 cm、六轴Y为+20.5 mm，使样品中心与1380 mm光束等高；各装置高度仍待[复测 #2](https://github.com/David-JA/lab-frame-experimental-geometry/issues/2)。
 
-已照到样品也可能暂时没有反射满足衍射条件：在当前理想立方取向下，φ调到约2.01915°可查看 `(200)`。未照到时，面板会显示实际中心偏差和照明模型尺寸；棕色外形为独立示意。也可以显式载入“理想对中示例”。亮度只表示几何响应，不代表真实计数；示例和输入说明见[衍射预览 Spec](./discuss/20261111_diffraction_preview_spec.md)。
+已照到样品也可能暂时没有反射满足衍射条件：在当前理想立方取向下，φ调到约2.01915°可查看 `(200)`。未照到时，面板会显示实际中心偏差和照明模型尺寸；棕色外形为独立示意。也可以显式载入“理想对中示例”。亮度只表示几何响应，不代表真实计数；示例和输入说明见[衍射预览 Spec](./docs/archive/20261111_diffraction_preview_spec.md)。
 
 当前为研究试用版本。简化模型、图纸包络与卷尺数据不替代实物标定，也不构成硬件运动许可。
 
@@ -57,11 +57,12 @@ npm run dev
 | 文档 | 用途 |
 |---|---|
 | [项目维护记忆](./docs/project_memory.md) | 架构、实现约定、维护注意事项及验证入口 |
-| [实施与验收 Spec](./discuss/20261109_issue38_g0_g1_minimal_spec.md) | 需求、任务、阶段状态与验收记录 |
-| [衍射预览 Spec](./discuss/20261111_diffraction_preview_spec.md) | 实时理想单晶图样的需求、参考实现、设计与验收 |
+| [已验收 Spec 归档](./docs/archive/README.md) | 已完成阶段的需求、评审与正式接受记录 |
+| [G0/G1 Spec](./docs/archive/20261109_issue38_g0_g1_minimal_spec.md) | 装配、运动学与晶体学；已正式接受，登记 Merge Ready |
+| [衍射预览 Spec](./docs/archive/20261111_diffraction_preview_spec.md) | 实时理想单晶首版；已完成并归档 |
 | [尺寸与高度记录](./discuss/20261110_lab_height_survey.md) | 图纸、粗测依据、参考面与更正沿革 |
 
-[Obsidian #38](https://github.com/David-JA/obsidian/issues/38) 持有 G0/G1 正式验收；[Parent #32](https://github.com/David-JA/obsidian/issues/32) 是上层虚拟实验项目。本工具独立交付，公开试用不等于正式接受。
+[Obsidian #38](https://github.com/David-JA/obsidian/issues/38) 持有 G0/G1 正式验收，Maintainer 已于2026-11-11确认通过并授权登记 Merge Ready。[Parent #32](https://github.com/David-JA/obsidian/issues/32) 是上层虚拟实验项目。本轮接受不等于实物尺寸标定或后续扩展完成。
 
 ## 许可
 

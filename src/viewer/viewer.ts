@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { Scene as GeometryScene, SceneConfig, Device, Mat4, Vec3 } from '../core';
 import { point, direction, unit } from '../core/math';
+import { detectorSupport } from '../core/detector-support';
 import { SceneLabels, type SceneLabel, type LabelRole } from './scene-labels';
 import { viewPolicy, type ViewerCallbacks, type ViewerView } from './view-policy';
 
@@ -137,9 +138,19 @@ export class GeometryViewer {
       this.#groups.get(frame)!.add(mesh);this.#bodies.push({id:d.id,mesh,color:mat.color.clone(),edges});return mesh;
     };
     if(d.type==='detector_support'){
-      register(d.output_frame,new THREE.BoxGeometry(55,y,55),material,[0,-y/2,60],'support-post');
-      register(d.output_frame,new THREE.BoxGeometry(x,35,z),material.clone(),[0,-y+35,30],'support-carriage');
-      register(d.output_frame,new THREE.BoxGeometry(110,45,100),material.clone(),[0,0,40],'panel-bracket');
+      // Keep the LAB-aligned hardware behind the full calibrated panel envelope.
+      const panels=new THREE.Box3();
+      for(const panel of this.#config!.devices.devices.filter(panel=>panel.detector&&detectorSupport(this.#config!,panel.id)?.device.id===d.id)){
+        const [width,height,depth]=panel.visual.size_mm,offset=panel.visual.offset_mm??[0,0,0];
+        const envelope=new THREE.Box3(new THREE.Vector3(-width/2,-height/2,0),new THREE.Vector3(width/2,height/2,depth));
+        envelope.translate(vector(offset)).applyMatrix4(matrix(this.#geometry!.get_frame_transform(d.output_frame,panel.output_frame).matrix));panels.union(envelope);
+      }
+      const center=panels.isEmpty()?new THREE.Vector3():panels.getCenter(new THREE.Vector3());
+      const rear=(panels.isEmpty()?20:panels.max.z)+2,postZ=rear+55/2;
+      const postBottom=-y+35,postTop=center.y-45/2,postHeight=Math.max(1,postTop-postBottom);
+      register(d.output_frame,new THREE.BoxGeometry(55,postHeight,55),material,[center.x,postTop-postHeight/2,postZ],'support-post');
+      register(d.output_frame,new THREE.BoxGeometry(x,35,z),material.clone(),[center.x,-y+35/2,postZ],'support-carriage');
+      register(d.output_frame,new THREE.BoxGeometry(110,45,30),material.clone(),[center.x,center.y,rear+30/2],'panel-bracket');
       return;
     }
     if(d.type==='rotary'&&d.visual.shape==='box'){

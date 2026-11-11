@@ -218,6 +218,34 @@ describe('viewer display integration',()=>{
     expect(new Vector3().setFromMatrixPosition(part('hexapod','lower-adapter').matrixWorld).toArray()).toEqual([0,777.5,0]);
     expect(viewer.diagnostics().max_world_matrix_error).toBeLessThan(1e-8);
   });
+  it('keeps detector support hardware outside the calibrated panel and preserves its physical plane',()=>{
+    for(const tilted of [false,true]){
+      const config=lab_height_config();
+      if(tilted){
+        const panel=config.assembly.frames.find(f=>f.id==='D')!;
+        config.assembly.frames.push({id:'panel_shim',parent:panel.parent,mount:{position_mm:[15,-12,25],quaternion_xyzw:[0,Math.sin(Math.PI/12),0,Math.cos(Math.PI/12)]},motion:{kind:'fixed'}});
+        panel.parent='panel_shim';panel.mount.position_mm=[12,-6,25];
+      }
+      const geometry=load_scene(config),original=geometry.save_state();
+      viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(geometry);
+      const bodies:Mesh[]=[];viewer.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId)bodies.push(o);});
+      const panel=bodies.find(o=>o.userData.deviceId==='detector'&&o.userData.bodyPart==='body')!,panelBounds=new Box3().setFromObject(panel);
+      const support=bodies.filter(o=>o.userData.deviceId==='detector_support');expect(support).toHaveLength(3);
+      for(const part of support)expect(new Box3().setFromObject(part).intersectsBox(panelBounds),part.userData.bodyPart).toBe(false);
+      const bracket=new Box3().setFromObject(support.find(o=>o.userData.bodyPart==='panel-bracket')!);
+      expect(bracket.min.z-panelBounds.max.z).toBeCloseTo(2,5);
+      expect(viewer.diagnostics().max_detector_plane_error_mm).toBeLessThan(1e-8);
+      const before=panel.matrixWorld.clone(),f=geometry.save_state();f.assembly.frames.find(f=>f.id==='D_support')!.mount.position_mm[0]+=40;f.assembly.frames.find(f=>f.id==='D_support')!.mount.position_mm[2]+=100;
+      geometry.restore_state(f);viewer.update(geometry);
+      const moved:Mesh[]=[];viewer.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId)moved.push(o);});
+      const after=moved.find(o=>o.userData.deviceId==='detector'&&o.userData.bodyPart==='body')!,movedBounds=new Box3().setFromObject(after);
+      for(const part of moved.filter(o=>o.userData.deviceId==='detector_support'))expect(new Box3().setFromObject(part).intersectsBox(movedBounds)).toBe(false);
+      expect(after.matrixWorld.elements[12]-before.elements[12]).toBeCloseTo(40,8);expect(after.matrixWorld.elements[14]-before.elements[14]).toBeCloseTo(100,8);
+      expect(geometry.save_state().devices).toEqual(original.devices);expect(geometry.save_state().experiment_state).toEqual(original.experiment_state);
+      expect(geometry.save_state().assembly.frames.find(f=>f.id==='D')).toEqual(original.assembly.frames.find(f=>f.id==='D'));
+      viewer.dispose();viewer=undefined;
+    }
+  });
   it('keeps compact metal discs, adapter plates and the column attached to their actual frames',()=>{
     const geometry=load_scene(example_config());viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(geometry);
     const bodies:Mesh[]=[];viewer.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId)bodies.push(o);});

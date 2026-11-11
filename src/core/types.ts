@@ -7,7 +7,7 @@ export interface Axis { frame: string; point_mm: Vec3; direction: Vec3 }
 export interface Cell { a: number; b: number; c: number; alpha_deg: number; beta_deg: number; gamma_deg: number }
 export interface Visual { shape: 'plate' | 'cylinder' | 'box' | 'detector'; size_mm: Vec3; color: string; offset_mm?: Vec3; adapter_thickness_mm?: number; upper_disc_size_mm?: Vec3 }
 export interface Device {
-  id: string; type: 'rotary' | 'hexapod' | 'z_stage' | 'theta' | 'xy' | 'sample' | 'detector' | 'fixture';
+  id: string; type: 'rotary' | 'hexapod' | 'z_stage' | 'theta' | 'xy' | 'sample' | 'detector' | 'detector_support' | 'fixture';
   output_frame: string; visual: Visual; provenance: 'synthetic' | 'source_statement';
   integrated_into?: string;
   description?: string;

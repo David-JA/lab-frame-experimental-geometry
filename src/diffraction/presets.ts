@@ -3,6 +3,7 @@ import type { SceneConfig, Vec3 } from '../core/types';
 import { clone } from '../core/types';
 import { add, sub, dot, cross, direction, point, inverseRigid, multiply, translation, fromQuat, toQuat, scale, unit } from '../core/math';
 import { defaultDiffraction, detectorPanel } from './model';
+import { detectorSupport, withDetectorSupport } from '../core/detector-support';
 
 // April 2026 adopted calibration. PONI values are mm / radians here.
 export const APRIL_PONI={distance:1283.9050444983084,p1:209.47423774212873,p2:202.32982511592143,r1:-0.0015173812091801163,r2:-0.0008623972603749447,r3:6.542928647768065e-7};
@@ -17,27 +18,37 @@ export function aprilPanelPose(anchor:Vec3) {
   return [x[0],y[0],n[0],center[0],x[1],y[1],n[1],center[1],x[2],y[2],n[2],center[2],0,0,0,1];
 }
 function setDetectorWorld(c:SceneConfig,id:string,world:number[]):SceneConfig {
-  const scene=load_scene(c),d=c.devices.devices.find(d=>d.id===id)!,f=c.assembly.frames.find(f=>f.id===d.output_frame);
+  const d=c.devices.devices.find(d=>d.id===id)!;let f=c.assembly.frames.find(f=>f.id===d.output_frame);
   if(!f||f.motion.kind!=='fixed')throw new Error('探测器需要独立的固定安装 frame，不能覆盖 LAB 或晶体 frame。');
-  const parent=scene.get_frame_transform('LAB',f.parent).matrix,local=multiply(inverseRigid(parent),world);
+  // Calibration belongs to one panel; other devices and children keep their existing mount.
+  if(c.devices.devices.some(other=>other.id!==id&&other.output_frame===f!.id)||c.assembly.frames.some(child=>child.parent===f!.id)||c.assembly.supports.some(s=>s.base_frame===f!.id||s.moving_frame===f!.id)){
+    const ids=new Set(['LAB',...c.assembly.frames.map(frame=>frame.id),...c.devices.devices.flatMap(device=>device.crystal?[device.crystal.frame]:[])]);
+    const base=id+'_calibrated_panel';let frameId=base;for(let i=2;ids.has(frameId);i++)frameId=base+'_'+i;
+    f={id:frameId,parent:f.parent,mount:clone(f.mount),motion:{kind:'fixed'}};c.assembly.frames.push(f);d.output_frame=frameId;
+  }
+  const scene=load_scene(c),parent=scene.get_frame_transform('LAB',f.parent).matrix,local=multiply(inverseRigid(parent),world);
   f.mount={position_mm:point(local,[0,0,0]),quaternion_xyzw:toQuat(local)};return c;
 }
-export function withAprilParameters(input:SceneConfig,sampleId?:string,detectorId?:string):SceneConfig {
+export function withDefaultDiffractionParameters(input:SceneConfig,sampleId?:string,detectorId?:string):SceneConfig {
   const c=clone(input),p=defaultDiffraction(c,sampleId??c.diffraction?.sample_id,detectorId??c.diffraction?.detector_id);
   if(!p)throw new Error('请先选择一个样品和探测器。');
-  if(c.diffraction){p.show_hkl=c.diffraction.show_hkl;p.hkl_limit=c.diffraction.hkl_limit;p.reflection_model=c.diffraction.reflection_model;p.spot_diameter_invA=c.diffraction.spot_diameter_invA;}
-  const sample=c.devices.devices.find(d=>d.id===p.sample_id)!,detector=c.devices.devices.find(d=>d.id===p.detector_id)!;
+  const sample=c.devices.devices.find(d=>d.id===p.sample_id)!;
   sample.crystal!.cell={a:3.59033485,b:3.59033485,c:3.59033485,alpha_deg:90,beta_deg:90,gamma_deg:90};
+  c.diffraction=defaultDiffraction(c,p.sample_id,p.detector_id)!;
+  return load_scene(c).save_state();
+}
+export function withAprilParameters(input:SceneConfig,sampleId?:string,detectorId?:string):SceneConfig {
+  const c=withDefaultDiffractionParameters(input,sampleId,detectorId),p=c.diffraction!;
+  if(input.diffraction){p.show_hkl=input.diffraction.show_hkl;p.hkl_limit=input.diffraction.hkl_limit;p.reflection_model=input.diffraction.reflection_model;p.spot_diameter_invA=input.diffraction.spot_diameter_invA;}
+  const detector=c.devices.devices.find(d=>d.id===p.detector_id)!;
   detector.detector={pixels:[4288,4288],pixel_size_mm:[0.1,0.1],provenance:'source_statement'};
-  c.diffraction=p;
-  return load_scene(setDetectorWorld(c,p.detector_id,aprilPanelPose(c.assembly.beam.point_mm))).save_state();
+  const hadSupport=!!detectorSupport(c,p.detector_id),mounted=withDetectorSupport(c,p.detector_id),support=detectorSupport(mounted,p.detector_id)!;
+  const local=aprilPanelPose(c.assembly.beam.point_mm);
+  if(!hadSupport)support.frame.mount.position_mm=[c.assembly.beam.point_mm[0],c.assembly.beam.point_mm[1],local[11]];
+  local[3]-=c.assembly.beam.point_mm[0];local[7]-=c.assembly.beam.point_mm[1];local[11]=0;
+  const world=multiply(translation(support.frame.mount.position_mm),local);
+  return load_scene(setDetectorWorld(mounted,p.detector_id,world)).save_state();
 }
-export function detectorDistance(input:SceneConfig,id:string):number {
+export function detectorNormalDistance(input:SceneConfig,id:string):number {
   const panel=detectorPanel(load_scene(input),id);return dot(sub(panel.center,input.assembly.beam.point_mm),panel.normal);
-}
-export function withDetectorDistance(input:SceneConfig,id:string,distance:number):SceneConfig {
-  if(!Number.isFinite(distance)||distance<=0||distance>100000)throw new Error('探测器距离需要大于 0 且不超过 100000 mm。');
-  const c=clone(input),scene=load_scene(c),d=c.devices.devices.find(d=>d.id===id)!,m=scene.get_frame_transform('LAB',d.output_frame).matrix;
-  const panel=detectorPanel(scene,id),next=add(panel.center,scale(panel.normal,distance-detectorDistance(c,id)));
-  m[3]=next[0];m[7]=next[1];m[11]=next[2];return setDetectorWorld(c,id,m);
 }

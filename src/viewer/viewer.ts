@@ -98,7 +98,7 @@ export class GeometryViewer {
   }
   focus_sample(){this.#fitCamera(vector(this.#sampleFocus),this.#sampleRadius);this.#labels.render(this.camera);}
   focus_apparatus(){
-    const detectors=new Set(this.#config?.devices.devices.filter(d=>d.type==='detector').map(d=>d.id));
+    const detectors=new Set(this.#config?.devices.devices.filter(d=>d.type==='detector'||d.type==='detector_support').map(d=>d.id));
     const box=this.#bodyBounds(body=>!detectors.has(body.id));
     if(box.isEmpty())return;
     const sphere=box.getBoundingSphere(new THREE.Sphere());this.#fitCamera(sphere.center,sphere.radius);this.#labels.render(this.camera);
@@ -136,6 +136,21 @@ export class GeometryViewer {
       mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry,12),edges));mesh.userData.deviceId=d.id;mesh.userData.bodyPart=part;
       this.#groups.get(frame)!.add(mesh);this.#bodies.push({id:d.id,mesh,color:mat.color.clone(),edges});return mesh;
     };
+    if(d.type==='detector_support'){
+      register(d.output_frame,new THREE.BoxGeometry(55,y,55),material,[0,-y/2,60],'support-post');
+      register(d.output_frame,new THREE.BoxGeometry(x,35,z),material.clone(),[0,-y+35,30],'support-carriage');
+      register(d.output_frame,new THREE.BoxGeometry(110,45,100),material.clone(),[0,0,40],'panel-bracket');
+      return;
+    }
+    if(d.type==='rotary'&&d.visual.shape==='box'){
+      const offset=d.visual.offset_mm??[0,0,0],thickness=Math.min(20,y);
+      const bottom=offset[1]-y/2,diameter=Math.hypot(x,z);
+      // The base occupies the bottom of the existing envelope; the table top stays fixed.
+      const baseMaterial=new THREE.MeshStandardMaterial({color:0x77818b,metalness:.3,roughness:.45});
+      register(d.output_frame,new THREE.CylinderGeometry(diameter/2,diameter/2,thickness,64),baseMaterial,[offset[0],bottom+thickness/2,offset[2]],'rotary-base');
+      if(y>thickness)register(d.output_frame,new THREE.BoxGeometry(x,y-thickness,z),material,[offset[0],offset[1]+thickness/2,offset[2]],'body');
+      return;
+    }
     if(d.type==='hexapod'&&d.visual.shape==='cylinder'){
       const f=this.#config!.assembly.frames.find(f=>f.id===d.output_frame)!,offset=d.visual.offset_mm??[0,0,0];
       const [ux,uy,uz]=d.visual.upper_disc_size_mm??[x*.75,y,z*.75];

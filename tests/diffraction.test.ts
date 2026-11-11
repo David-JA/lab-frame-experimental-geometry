@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { load_scene, type SceneConfig, type Vec3 } from '../src/core';
+import { detectorSupport, withDetectorSupport, withDetectorSupportPosition, load_scene, type SceneConfig, type Vec3 } from '../src/core';
 import { example_config, lab_height_config, diffraction_demo_config } from '../src/example';
 import { defaultDiffraction, excite, enumerateReflections, projectRay, detectorPanel, illumination, sampleSegment, DiffractionModel, HC_KEV_A } from '../src/diffraction/model';
-import { aprilPanelPose, detectorDistance, withDetectorDistance, withAprilParameters } from '../src/diffraction/presets';
+import { aprilPanelPose, detectorNormalDistance, withDefaultDiffractionParameters, withAprilParameters } from '../src/diffraction/presets';
 
 function close(a:number[],b:number[],eps=1e-7){a.forEach((v,i)=>expect(Math.abs(v-b[i])).toBeLessThan(eps));}
 function cylinderFixture(tilt=0):SceneConfig {
@@ -11,6 +11,75 @@ function cylinderFixture(tilt=0):SceneConfig {
   const angle=(90+tilt)*Math.PI/360;s.mount.quaternion_xyzw=[Math.sin(angle),0,0,Math.cos(angle)];
   c.diffraction=defaultDiffraction(c)!;c.diffraction.sample_shape={kind:'cylinder',size_mm:[2,2,3]};c.diffraction.beam_size_mm=[4,4];return c;
 }
+describe('LAB-aligned detector support and calibrated panel',()=>{
+  it('moves only support X/Z and preserves a tilted, offset panel mount',()=>{
+    const c=lab_height_config(),support=detectorSupport(c,'detector')!,panel=c.assembly.frames.find(f=>f.id==='D')!;
+    panel.mount={position_mm:[12,-6,25],quaternion_xyzw:[0,Math.sin(Math.PI/12),0,Math.cos(Math.PI/12)]};
+    const inputCopy=structuredClone(c),before=load_scene(c),original=before.save_state(),oldPanel=detectorPanel(before,'detector');
+    const moved=withDetectorSupportPosition(c,'detector',{x_mm:support.frame.mount.position_mm[0]+40,z_mm:support.frame.mount.position_mm[2]+100});
+    const after=load_scene(moved),newPanel=detectorPanel(after,'detector');
+    close(newPanel.center,oldPanel.center.map((v,i)=>v+[40,0,100][i]),1e-9);close(newPanel.normal,[.5,0,Math.sqrt(3)/2],1e-12);
+    const movedMount=moved.assembly.frames.find(f=>f.id==='D')!.mount;
+    expect(movedMount.position_mm).toEqual(panel.mount.position_mm);close(movedMount.quaternion_xyzw,panel.mount.quaternion_xyzw,1e-12);
+    expect(moved.assembly.frames.filter(f=>f.id!==support.frame.id&&f.id!=='D')).toEqual(original.assembly.frames.filter(f=>f.id!==support.frame.id&&f.id!=='D'));
+    expect(moved.experiment_state).toEqual(original.experiment_state);expect(c).toEqual(inputCopy);
+    close(after.get_sample_point('sample').position,before.get_sample_point('sample').position,1e-10);
+    expect(detectorNormalDistance(moved,'detector')-detectorNormalDistance(c,'detector')).toBeCloseTo(20+100*Math.sqrt(3)/2,9);
+    expect(load_scene(JSON.parse(JSON.stringify(moved))).save_state()).toEqual(moved);
+  });
+  it('upgrades legacy LAB/shared/child frames without moving other objects or mutating the input',()=>{
+    for(const mode of ['LAB','shared','child']){
+      const c=example_config(),d=c.devices.devices.find(d=>d.id==='detector')!;
+      if(mode==='LAB')d.output_frame='LAB';
+      const other=structuredClone(d);other.id='other_detector';c.devices.devices.push(other);
+      if(mode==='child')c.assembly.frames.push({id:'detector_child',parent:'D',mount:{position_mm:[3,4,5],quaternion_xyzw:[0,0,0,1]},motion:{kind:'fixed'}});
+      c.assembly.frames.push({id:d.output_frame+'_support',parent:'LAB',mount:{position_mm:[1,2,3],quaternion_xyzw:[0,0,0,1]},motion:{kind:'fixed'}});
+      c.devices.devices.push({id:'detector_support',type:'fixture',output_frame:'LAB',visual:{shape:'box',size_mm:[1,1,1],color:'#888888'},provenance:'synthetic'});
+      const before=load_scene(c),original=before.save_state(),upgraded=withDetectorSupport(c,'detector'),support=detectorSupport(upgraded,'detector')!;
+      close(load_scene(upgraded).get_world_transform('detector').matrix,before.get_world_transform('detector').matrix,1e-9);
+      expect(withDetectorSupport(upgraded,'detector')).toEqual(upgraded);expect(c).toEqual(original);
+      const moved=withDetectorSupportPosition(upgraded,'detector',{x_mm:support.frame.mount.position_mm[0]+17,z_mm:support.frame.mount.position_mm[2]+80}),after=load_scene(moved);
+      close(after.get_world_position('other_detector').position,before.get_world_position('other_detector').position,1e-9);
+      close(after.get_world_position('detector').position,before.get_world_position('detector').position.map((v,i)=>v+[17,0,80][i]),1e-9);
+      if(mode==='child')close(after.get_frame_transform('LAB','detector_child').matrix,before.get_frame_transform('LAB','detector_child').matrix,1e-9);
+    }
+  });
+  it('keeps old snapshots unchanged and rejects support axes that are not LAB aligned',()=>{
+    const legacy=example_config();expect(load_scene(JSON.parse(JSON.stringify(legacy))).save_state()).toEqual(legacy);
+    expect(detectorSupport(legacy,'detector')).toBeUndefined();
+    for(const change of ['rotation','parent']){
+      const c=lab_height_config(),f=detectorSupport(c,'detector')!.frame;
+      if(change==='rotation')f.mount.quaternion_xyzw=[0,Math.sin(.1),0,Math.cos(.1)];else f.parent='R';
+      expect(()=>load_scene(c)).toThrow('LAB-aligned');
+    }
+  });
+  it('preserves mechanical positioning and calibration on preview reset, while an explicit calibration preserves support X/Z',()=>{
+    const c=lab_height_config(),support=detectorSupport(c,'detector')!;
+    support.frame.mount.position_mm[0]+=37;support.frame.mount.position_mm[2]+=100;
+    const f=c.assembly.frames.find(f=>f.id==='D')!;f.mount={position_mm:[12,-6,25],quaternion_xyzw:[0,Math.sin(.1),0,Math.cos(.1)]};
+    const reset=withDefaultDiffractionParameters(c);expect(reset.assembly).toEqual(c.assembly);expect(reset.experiment_state).toEqual(c.experiment_state);
+    expect(reset.devices.devices.find(d=>d.id==='detector')).toEqual(c.devices.devices.find(d=>d.id==='detector'));
+    const calibrated=withAprilParameters(c);expect(detectorSupport(calibrated,'detector')!.frame).toEqual(support.frame);
+    const panel=detectorPanel(load_scene(calibrated),'detector');close(panel.center,[47.121992294674304,1373.96699562071,support.frame.mount.position_mm[2]],1e-8);
+  });
+});
+
+describe('panel calibration isolation',()=>{
+  it('recalibrates one supported panel without moving shared devices or child frames',()=>{
+    const c=lab_height_config(),d=c.devices.devices.find(d=>d.id==='detector')!,f=c.assembly.frames.find(f=>f.id===d.output_frame)!;
+    f.mount={position_mm:[30,40,50],quaternion_xyzw:[0,Math.sin(.1),0,Math.cos(.1)]};
+    const other=structuredClone(d);other.id='other_detector';c.devices.devices.push(other);
+    c.assembly.frames.push({id:'panel_child',parent:f.id,mount:{position_mm:[3,4,5],quaternion_xyzw:[0,0,0,1]},motion:{kind:'fixed'}});
+    const before=load_scene(c),calibrated=withAprilParameters(c),after=load_scene(calibrated);
+    expect(calibrated.devices.devices.find(d=>d.id==='detector')!.output_frame).not.toBe(f.id);
+    close(after.get_world_transform('other_detector').matrix,before.get_world_transform('other_detector').matrix,1e-10);
+    close(after.get_frame_transform('LAB','panel_child').matrix,before.get_frame_transform('LAB','panel_child').matrix,1e-10);
+    const support=detectorSupport(calibrated,'detector')!;expect(support.frame).toEqual(detectorSupport(c,'detector')!.frame);
+    const moved=withDetectorSupportPosition(calibrated,'detector',{x_mm:support.frame.mount.position_mm[0]+40,z_mm:support.frame.mount.position_mm[2]+100});
+    close(load_scene(moved).get_world_position('other_detector').position,after.get_world_position('other_detector').position.map((v,i)=>v+[40,0,100][i]),1e-9);
+  });
+});
+
 describe('diffraction numerical contracts DP01–DP06',()=>{
   it('uses reciprocal diameter, no 2pi, and a fixed excitation weight',()=>{
     const g:Vec3=[Math.sqrt(3)/2,0,-0.5],e=excite(g,1,0.02);
@@ -47,10 +116,12 @@ describe('diffraction numerical contracts DP01–DP06',()=>{
     close(hit.point_lab_mm,[48.51960393035996,1387.1601320232133,1283.9867976786652],1e-6);
     expect(hit.u).toBeCloseTo(2527.4766447211337,7);expect(hit.v).toBeCloseTo(2011.56833568115,7);
     close(panel.center.map((v,i)=>v-214.35*panel.x[i]+214.35*panel.y[i]),[-204.22790118851256,1588.3170561591331,1283.7767604923882],1e-6);
-    expect(m[3]).toBeCloseTo(10.121992294674304,8);expect(f.parent).toBe('LAB');
-    expect(detectorDistance(lab_height_config(),'detector')).toBeCloseTo(1283.9050444983084,8);
-    const moved=withDetectorDistance(lab_height_config(),'detector',2000),p2=detectorPanel(load_scene(moved),'detector');
-    close(p2.normal,panel.normal,1e-12);expect(detectorDistance(moved,'detector')).toBeCloseTo(2000,8);
+    expect(m[3]).toBeCloseTo(10.121992294674304,8);expect(f.parent).toBe(detectorSupport(c,'detector')!.frame.id);
+    const baseline=lab_height_config();expect(detectorNormalDistance(baseline,'detector')).toBeCloseTo(1283.9050444983084,8);
+    const support=detectorSupport(baseline,'detector')!.frame;
+    const moved=withDetectorSupportPosition(baseline,'detector',{x_mm:support.mount.position_mm[0],z_mm:support.mount.position_mm[2]+100}),p2=detectorPanel(load_scene(moved),'detector');
+    close(p2.normal,panel.normal,1e-12);close(p2.center,[panel.center[0],panel.center[1],panel.center[2]+100],1e-8);
+    expect(detectorNormalDistance(moved,'detector')).toBeCloseTo(1283.9050444983084+100*panel.normal[2],8);
   });
   it('integrates fully illuminated cylinders and boxes and handles tangent/disjoint segments',()=>{
     const c=cylinderFixture(),s=load_scene(c),p=c.diffraction!,lit=illumination(s,p,128);
@@ -121,7 +192,8 @@ describe('live ideal model DP07',()=>{
   it('shows 200 in the centered demo and removes it across an excitation boundary',()=>{
     const c=diffraction_demo_config(),s=load_scene(c),model=new DiffractionModel(),p=c.diffraction!;
     const initial=model.compute(s,p);expect(initial.illumination.status).toBe('lit');expect(initial.spots.find(r=>r.hkl.join()==='2,0,0')!.weight).toBeCloseTo(1,10);
-    s.set_joint_value('rotary.phi',5);expect(model.compute(s,p).spots.some(r=>r.hkl.join()==='2,0,0')).toBe(false);
+    // The wider default sphere still excites 200 at 5 degrees; 10 degrees is outside it.
+    s.set_joint_value('rotary.phi',10);expect(model.compute(s,p).spots.some(r=>r.hkl.join()==='2,0,0')).toBe(false);
     s.set_joint_value('hexapod.x',5);const dark=model.compute(s,p);expect(dark.illumination.status).toBe('outside');expect(dark.spots).toEqual([]);expect(dark.direct?.on_panel).toBe(true);
     expect(HC_KEV_A/p.energy_keV).toBeCloseTo(0.1265,12);
   });

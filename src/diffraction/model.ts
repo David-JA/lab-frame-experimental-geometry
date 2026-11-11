@@ -9,7 +9,7 @@ export function defaultDiffraction(c: SceneConfig, sampleId?: string, detectorId
   const s=sampleId?samples.find(d=>d.id===sampleId):samples.length===1?samples[0]:undefined;
   const d=detectorId?detectors.find(d=>d.id===detectorId):detectors.length===1?detectors[0]:undefined;
   if(!s||!d)return;
-  return {sample_id:s.id,detector_id:d.id,energy_keV:HC_KEV_A/0.1265,spot_diameter_invA:0.006,beam_size_mm:[0.2,0.2],sample_shape:{kind:'cylinder',size_mm:[1.92,1.92,3]},reflection_model:isCubic(s.crystal!.cell)?'fcc':'primitive',hkl_limit:8,show_hkl:true};
+  return {sample_id:s.id,detector_id:d.id,energy_keV:HC_KEV_A/0.1265,spot_diameter_invA:0.1,beam_size_mm:[0.2,0.2],sample_shape:{kind:'cylinder',size_mm:[1.92,1.92,3]},reflection_model:isCubic(s.crystal!.cell)?'fcc':'primitive',hkl_limit:8,show_hkl:true};
 }
 export function validateDiffraction(c: SceneConfig) {
   const p=c.diffraction;if(!p)return;

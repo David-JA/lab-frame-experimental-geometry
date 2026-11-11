@@ -69,6 +69,10 @@ export function validatedConfig(input: unknown): SceneConfig {
   for(const d of c.devices.devices){
     requireThat(known.has(d.output_frame),'/devices/'+d.id,'Unknown output frame');
     if(d.type==='detector')requireThat(d.detector,'/devices/'+d.id+'/detector','Detector requires pixel metadata');
+    if(d.type==='detector_support'){
+      const f=frames.get(d.output_frame),q=f?.mount.quaternion_xyzw;
+      requireThat(f?.parent==='LAB'&&f.motion.kind==='fixed'&&q&&norm(q.slice(0,3) as [number,number,number])<1e-8,'/devices/'+d.id,'Detector support must be fixed in LAB with LAB-aligned axes');
+    }
     const motion=frames.get(d.output_frame)?.motion;
     const expected={rotary:'revolute',theta:'revolute',hexapod:'six_dof',z_stage:'prismatic',xy:'xy_translation'}[d.type as 'rotary'|'theta'|'hexapod'|'z_stage'|'xy'];
     if(expected)requireThat(motion?.kind===expected,'/devices/'+d.id,'Device motion kind mismatch');

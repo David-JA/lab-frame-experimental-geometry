@@ -1,8 +1,9 @@
 import type { Scene, SceneConfig, Device, Frame, Vec3, DirectionType } from '../core';
-import { point } from '../core/math';
+import { point, toQuat } from '../core/math';
 import { SingleAxisMotion, type MotionAxis } from './single-axis-motion';
+import { detectorSupport } from '../core/detector-support';
 
-const names:Record<Device['type'],string>={rotary:'大样品台 · φ',hexapod:'六轴位移台',z_stage:'Z 升降平台',theta:'θ 旋转台',xy:'XY 位移台',sample:'样品与晶体',detector:'探测器',fixture:'固定支架'};
+const names:Record<Device['type'],string>={rotary:'大样品台 · φ',hexapod:'六轴位移台',z_stage:'Z 升降平台',theta:'θ 旋转台',xy:'XY 位移台',sample:'样品与晶体',detector:'探测器',detector_support:'探测器支撑架',fixture:'固定支架'};
 const fmt=(n:number)=>Math.abs(n)<1e-9?'0':String(Number(n.toFixed(6)));
 const xyz=(p:Vec3)=>p.map(fmt).join(', ');
 export class DeviceControls {
@@ -101,7 +102,7 @@ export class DeviceControls {
       const describe=(title:string,content:string)=>{text('dt',title,notes);text('dd',content,notes);};
       if(!f){
         const placement=detail('placement-'+d.id,'安装位置与外形 · 绑定参考 '+d.output_frame,body,false,'parameter-block');
-        text('p','直接使用 '+d.output_frame+' 坐标系，安装位置只读。',placement,'small');
+        text('p','直接使用 '+d.output_frame+' 坐标系，安装位置只读。'+(d.type==='detector'?'换距或横移前，请在衍射预览高级区按当前安装建立支撑架。':''),placement,'small');
         const info=text('p','',placement,'position-info');
         this.#refresh.push(()=>info.textContent='绑定原点 · LAB ('+xyz(scene.get_world_position(d.id).position)+') mm');
         const motion=detail('motion-'+d.id,'运动调整 · 随上级装置移动',body,true,'parameter-block');
@@ -121,11 +122,18 @@ export class DeviceControls {
       };
       const writeElevation=(riseMm:number)=>{const next=scene.save_state();applyElevation(next,riseMm);scene.restore_state(next);};
       const reference=(frame:Frame):Vec3=>frame.motion.kind==='revolute'?frame.motion.center_mm:frame.motion.kind==='six_dof'?frame.motion.pivot_mm:frame.mount.position_mm;
-      const placement=detail('placement-'+d.id,'安装位置与外形 · '+anchor.parent+' / mm',body,false,'parameter-block');
+      const calibratedPanel=d.type==='detector',panelSupport=calibratedPanel?detectorSupport(c,d.id):undefined;
+      const placement=detail('placement-'+d.id,d.type==='detector_support'?'固定位置 · LAB / mm':calibratedPanel?'平板标定安装 · 只读':'安装位置与外形 · '+anchor.parent+' / mm',body,false,'parameter-block');
       text('p',anchor.motion.kind==='revolute'?'旋转轴参考点；随底座一起移动。':anchor.motion.kind==='six_dof'?'零位 pivot 安装参考点，不含本级平移。':anchor.motion.kind==='xy_translation'?'零位安装参考点 '+anchor.id+'，不含本级 XY 行程。':'安装基座 '+anchor.id+' 的原点，坐标相对 '+anchor.parent+'。',placement,'small');
       const positionInfo=text('p','',placement,'position-info');
       this.#refresh.push(()=>{const a=readFrame();positionInfo.textContent='安装参考点 · LAB ('+xyz(point(scene.get_frame_transform('LAB',a.parent).matrix,reference(a)))+') mm';});
-      for(let i=0;i<3;i++)number(['X','Y','Z'][i],deviceName(d)+' · 安装 '+['X','Y','Z'][i]+' / mm',()=>reference(readFrame())[i],placement,value=>{
+      if(d.type==='detector_support')text('p','沿 LAB 的 X / Z 双轴轨道定位；高度 Y 保持安装值。平板随架移动，倾角与架内偏移保留。',placement,'small');
+      if(calibratedPanel){
+        const calibration=text('p','',placement,'position-info');
+        this.#refresh.push(()=>{const relative=scene.get_frame_transform(panelSupport?.frame.id??anchor.parent,d.output_frame).matrix;calibration.textContent=(panelSupport?'架内偏移':'相对 '+anchor.parent+' 偏移')+' ('+xyz(point(relative,[0,0,0]))+') mm；安装四元数 ('+toQuat(relative).map(fmt).join(', ')+')';});
+        text('p',panelSupport?'换距或横移请调整探测器支撑架的固定位置。':'此旧配置尚未建立支撑架。请在衍射预览的高级区点击“按当前安装建立支撑架”，再调整支撑架的固定位置。',placement,'small');
+      }
+      for(const i of calibratedPanel?[]:d.type==='detector_support'?[0,2]:[0,1,2])number(['X','Y','Z'][i],deviceName(d)+(d.type==='detector_support'?' · LAB ':' · 安装 ')+['X','Y','Z'][i]+' / mm',()=>reference(readFrame())[i],placement,value=>{
         if(d.elevation&&i===1){writeElevation(value-reference(readFrame())[1]+readFrame().mount.position_mm[1]-d.elevation.base_mount_y_mm);return;}
         const next=scene.save_state(),a=next.assembly.frames.find(x=>x.id===anchor.id)!,delta=value-reference(a)[i];
         a.mount.position_mm[i]+=delta;
@@ -135,7 +143,7 @@ export class DeviceControls {
       });
       if(d.type==='rotary'&&d.visual.shape==='box'){
         const appearance=detail('appearance-'+d.id,'柱体外观 · mm',placement,true,'sub-block');
-        text('p','高度只改变柱体外观，柱顶安装面保持不变。整体升降请使用'+(d.elevation?'运动调整中的台面升高':'上方安装 Y')+'；不新增运动轴。',appearance,'small');
+        text('p','高度包含底部圆盘，只改变外观；柱顶安装面保持不变。整体升降请使用'+(d.elevation?'运动调整中的台面升高':'上方安装 Y')+'；不新增运动轴。',appearance,'small');
         number('高度 / mm',deviceName(d)+' · 柱体高度 / mm',()=>scene.save_state().devices.devices.find(x=>x.id===d.id)!.visual.size_mm[1],appearance,value=>{
           const next=scene.save_state(),visual=next.devices.devices.find(x=>x.id===d.id)!.visual;
           const offset=visual.offset_mm??[0,0,0],top=offset[1]+visual.size_mm[1]/2;
@@ -255,7 +263,7 @@ export class DeviceControls {
       if(f.motion.kind==='fixed'&&!d.elevation)motion.hidden=true;
       body.prepend(motion);
       if(crystal)body.prepend(crystal);
-      const convention=f.motion.kind==='six_dof'?'XYZ 是 '+f.parent+' 中的平移（mm）；UVW 分别绕该坐标系的固定 X、Y、Z 轴转动（°），按 U→V→W 的演示约定组合。':
+      const convention=d.type==='detector_support'?'在固定位置栏沿 LAB X/Z 双轴平移；支撑架坐标轴始终与 LAB 对齐，平板的架内标定位姿不随定位改变。':f.motion.kind==='six_dof'?'XYZ 是 '+f.parent+' 中的平移（mm）；UVW 分别绕该坐标系的固定 X、Y、Z 轴转动（°），按 U→V→W 的演示约定组合。':
         members.length>1?'θ 绕 '+f.parent+' 中配置的轴旋转，带动 XY 滑台及样品；X/Y 是一体台内部平移行程。旋转正方向遵循右手定则。':
         f.motion.kind==='revolute'?'绕 '+f.parent+' 中配置的轴旋转，正方向遵循右手定则；下游装配随之转动。':
         f.motion.kind==='xy_translation'?'X/Y 沿 '+f.parent+' 中配置的两条轴平移；不改变安装零位。':
@@ -264,7 +272,7 @@ export class DeviceControls {
       describe('运动约定',convention);
       const motionImpact=impact(d.output_frame),installationImpact=impact(anchor.id);
       describe('联动范围',motionImpact+'。'+(f.motion.kind==='fixed'?'':'关节运动不改写安装参数。'));
-      describe('安装位置','安装坐标以 '+anchor.parent+' 为准。调整时平移'+(installationImpact===motionImpact?'上述装配':installationImpact)+'，保留关节读数及内部相对装配；其他独立分支和入射光束不变。');
+      describe('安装位置',calibratedPanel?(panelSupport?'平板相对支撑架的安装位置与姿态由标定确定，此处只读；换距和横移通过支撑架的 LAB X/Z 固定位置调整。':'保留旧配置的安装位姿，此处只读；先在衍射预览高级区按当前安装建立支撑架，再调整 LAB X/Z 固定位置。'):'安装坐标以 '+anchor.parent+' 为准。调整时平移'+(installationImpact===motionImpact?'上述装配':installationImpact)+'，保留关节读数及内部相对装配；其他独立分支和入射光束不变。');
       if(d.crystal)describe('样品与晶体',d.crystal.frame+' 原点与 '+d.output_frame+' 原点重合；样品中心与目标点分别定义在 '+d.output_frame+' 中，位置可通过配置修改。');
       if(d.type==='hexapod'&&d.visual.shape==='cylinder')describe('外观示意','圆盘与支杆使用主体配色，上下转接板为中灰色金属：上部随 '+d.output_frame+'，下部随 '+f.parent+'。支杆只连接配置端点，不参与机构求解。');
       if(d.description)describe('装置配置',d.description);

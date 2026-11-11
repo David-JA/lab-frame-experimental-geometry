@@ -188,6 +188,7 @@
             "xy",
             "sample",
             "detector",
+            "detector_support",
             "fixture",
             "z_stage"
           ]

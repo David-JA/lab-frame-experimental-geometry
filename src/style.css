@@ -94,16 +94,21 @@ input[aria-invalid=true]{border-color:#c54a3b}a{color:var(--accent)}.file{font-s
 .workbench.diffraction-open{grid-template-columns:270px minmax(240px,1fr) minmax(330px,420px)}
 .diffraction-panel{overflow:auto;min-width:0;padding:16px;border-left:1px solid var(--line);background:#fff}
 .diffraction-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.diffraction-heading h2{margin:0 0 4px;font-size:16px}.diffraction-heading button{font-size:12px}
+.diffraction-heading-actions{display:flex;gap:6px;flex-shrink:0}
+.inline-math{display:inline-block;vertical-align:middle;max-width:100%}.inline-math .katex{font-size:1.05em}.diffraction-reference-table .katex{font-size:1em}
+.diffraction-reference-table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}.diffraction-reference-table th,.diffraction-reference-table td{text-align:left;padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}.diffraction-reference-table th{font-weight:600;color:#46535e}
 .diffraction-status{font-size:13px;min-height:42px;line-height:1.6;color:#304d66;margin:14px 0 3px}
 #dp-plot{display:block;width:100%;height:auto;font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;overflow:visible}
-.diffraction-key{margin:0 0 16px;font-size:11px}.spot-key{color:#202020}.direct-key{color:#626d77;margin-left:10px}
+.diffraction-key{margin:0 0 16px;font-size:11px}.spot-key,.direct-key{display:inline-block;background:#000;border-radius:3px;padding:0 4px}.spot-key{color:#f2f2f2}.direct-key{color:#929292;margin-left:10px}
 .diffraction-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 10px;margin:10px 0}
 .diffraction-fields>label{display:flex;flex-direction:column;align-items:flex-start;gap:6px;font-size:12px;color:#46535e;min-width:0}
 .diffraction-fields input[type=number],.diffraction-fields select{width:100%;min-width:0;font-size:13px}
 .diffraction-fields>label.check{flex-direction:row;align-items:center;align-self:end;min-height:36px;margin:0}
+.diffraction-readout{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#46535e;min-width:0}.diffraction-readout output{font-size:14px;color:#243f53;padding:9px 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .diffraction-panel select{max-width:100%;min-width:0;font-size:12px}.diffraction-pick{display:flex;gap:10px;align-items:center;font-size:12px;margin:18px 0 8px}.diffraction-pick select{flex:1}
 .diffraction-detail{white-space:pre-line;font-size:12px;line-height:1.8;padding:10px;background:#f4f7f9;border-radius:4px;min-height:60px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .diffraction-indices{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.diffraction-indices input[type=number]{width:100%}
+.diffraction-derived{background:#f4f7f9;border:1px solid var(--line);border-radius:6px;padding:12px;margin:14px 0}.diffraction-derived>p:first-child{margin-top:0}.diffraction-derived>p:last-child{margin-bottom:0}.diffraction-derived-value{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:14px;font-size:12px}.diffraction-derived-value strong{font-size:18px;color:#243f53;font-variant-numeric:tabular-nums}
 .diffraction-panel .parameter{font-size:12px}.diffraction-panel .parameter input{width:130px}.diffraction-panel .parameter select{max-width:200px}
 .diffraction-panel button{font-size:12px}.diffraction-caveat{border-top:1px solid var(--line);padding-top:12px;margin-top:20px}.diffraction-hit{cursor:pointer}
 @media(min-width:1500px){.workbench.diffraction-open{grid-template-columns:280px minmax(0,1fr) 440px}}

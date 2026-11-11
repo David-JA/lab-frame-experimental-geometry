@@ -193,9 +193,14 @@ describe('viewer display integration',()=>{
     const geometry=load_scene(lab_height_config());geometry.set_joint_value('hexapod.y',0);geometry.set_joint_value('z_stage.z',150);viewer=new GeometryViewer(host as unknown as HTMLElement);viewer.update(geometry);
     const part=(id:string,name='body')=>{let mesh:Mesh|undefined;viewer!.scene.traverse(o=>{if(o instanceof Mesh&&o.userData.deviceId===id&&o.userData.bodyPart===name)mesh=o;});expect(mesh).toBeDefined();return mesh!;};
     const bounds=(id:string,name='body')=>new Box3().setFromObject(part(id,name));
-    expect(bounds('rotary').min.y).toBeCloseTo(0,8);expect(bounds('rotary').max.y).toBeCloseTo(770,8);
+    const column=bounds('rotary'),base=bounds('rotary','rotary-base');
+    expect(base.min.y).toBeCloseTo(0,8);expect(base.max.y).toBeCloseTo(20,8);
+    expect(column.min.y).toBeCloseTo(base.max.y,8);expect(column.max.y).toBeCloseTo(770,8);
+    expect(part('rotary','rotary-base').geometry.type).toBe('CylinderGeometry');
     expect(bounds('hexapod','lower-adapter').min.y).toBeCloseTo(770,8);expect(bounds('hexapod','lower-adapter').max.y).toBeCloseTo(785,8);
-    expect(bounds('rotary').getSize(new Vector3()).toArray()).toEqual([450,770,450]);
+    expect(column.getSize(new Vector3()).toArray()).toEqual([450,750,450]);
+    expect(base.getSize(new Vector3()).y).toBeCloseTo(20,8);
+    expect(base.clone().union(column).max.y-base.min.y).toBeCloseTo(770,8);
     expect(bounds('hexapod','lower-disc').min.y).toBeCloseTo(785,8);expect(bounds('hexapod','lower-disc').max.y).toBeCloseTo(815,8);
     // Mesh vertices are Float32; the 18.2 mm drawing thickness is not exactly representable.
     expect(bounds('hexapod','upper-disc').min.y).toBeCloseTo(1086.8,6);expect(bounds('hexapod','upper-disc').max.y).toBeCloseTo(1105,6);

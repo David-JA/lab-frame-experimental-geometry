@@ -11,7 +11,7 @@
 | [合成示例](../examples/experimental-setup/) / [Schema](../schema/setup.schema.json) | 设备、装配、实验状态及输入结构 |
 | [参数区](../src/ui/device-controls.ts) / [页面接线](../src/main.ts) | 选择、参数编辑、配置文件与高级 JSON 编辑 |
 | [查看策略](../src/viewer/view-policy.ts) / [渲染](../src/viewer/viewer.ts) / [标注](../src/viewer/scene-labels.ts) | 图层过滤、简化外观、拾取和文字布局 |
-| [衍射计算](../src/diffraction/model.ts) / [四月参照](../src/diffraction/presets.ts) / [面板](../src/ui/diffraction-panel.ts) | 有限照明体重心、倒易激发、同一面板投影及二维 SVG |
+| [衍射计算](../src/diffraction/model.ts) / [三维积分](../src/diffraction/forward.ts) / [姿态序列入口](../src/diffraction/frames.ts) / [面板](../src/ui/diffraction-panel.ts) | 同一 Scene 的受照重心、倒易反射、原始像素积分与预览；四月适配仍由 `presets.ts` 持有 |
 
 默认入口为 `lab_height_config()`；`example_config()` 保留原合成基线，可通过 `?example=synthetic` 或配置抽屉恢复。两者共用加载、校验与完整 snapshot 格式，不维护第二套计算引擎。
 
@@ -43,7 +43,11 @@ snapshot 保存设备、装配、关节、样品和原有三个 display 开关�
 
 预览主区的晶格常数a直接读写活动sample的`crystal.cell`，不在diffraction另存副本。立方下联动a=b=c，非立方仅更新a、保留b/c及角度；参考d由同一cell重算。编辑失焦或Enter提交，非法值恢复有效值。修改a、选择查看晶面、复位、采用四月参照和载入配置都必须同步这些控件与预测结果；不得把a与某个(hkl)的d互相标错。
 
-现有圆斑以固定浅灰色和原始几何权重控制不透明度，黑底上越亮表示响应越强；HKL使用深底浅字，选中提示独立粉色描边，不修改信号本体。仍使用SVG圆斑，不透明度重叠不是探测器线性强度累加。高斯核/真实强度的未来范围由[#3](https://github.com/David-JA/lab-frame-experimental-geometry/issues/3)持有，未实现。
+缺少 `diffraction.intensity_model` 的旧配置继续使用 SVG 圆斑，不透明度重叠不是线性强度累加。可选 `gaussian_3d` / `uniform_sphere_3d` 模式按三维总量 W 归一化，使用同一 Ewald 球面截取和原始像素边界积分。Gaussian σ 单独以 Å⁻¹ 保存，均匀球使用原倒易直径；`reflection_model` 仍只指 FCC/primitive。指定 W 是人为相对权重，不含结构因子，B 真实强度预测继续暂缓。
+
+数值入口 `computeForwardFrames(snapshot, poses, options)` 固化每个指定姿态、晶体矩阵、受照重心、标定板面与原始网格。每个反射返回 Float64 tile（raw 原点、宽高、行优先）、全球面积分、像素和、尾界、求积误差估计和状态；重叠 tiles 在全局 raw 坐标逐像素相加。球面参数化为绕 `ki+g` 的圆环，对像素四边的方向锥求方位角交集，再对环积分；等价于像素平面的 `k² |n·s| dA/r²`，不另铺二维核。保守支持 ROI 和环拓扑分段防止窄斑漏采，宽度低于浮点角分辨率或超出帧共享预算时明确 unresolved；未解析照明也必须传播 unresolved，不能冒充合法空帧。默认帧预算 200000 个 ROI 像素和 2000000 次求积评估。
+
+实时模式的独立参照字段为 null；独立 Python 审计用物理板面 Cartesian 求积，供验收而非每帧重复执行。完整合同见[#3 A Spec](./archive/20261113_issue3_reciprocal_spot_forward_spec.md)，方法、原始数值、图与复算命令见[验证记录](./validation/issue3-forward/README.md)。512² 预览按像素/格子面积交叠求和，使用固定灰度上限与独立显示阈值；HKL、点击区和直射束十字不向图像加信号。模式、宽度、W 与灰度设置随配置保存；复位恢复当前模式的演示值/W=1，四月参照保留这些人为设置。圆斑/高斯切换在当前 UI 内保留高斯宽度，缺项 legacy 配置本身不保存未激活的高斯字段。
 
 衍射核心用 `1/λ`、Å⁻¹，不含 `2π`。发射重心由机械 S 系的有限照明体积分得到，R_SC 只转晶格；照明模型尺寸与放大的视觉外形分开。直射参考始终投影固定光束中心线。预览和三维共用 D frame；四月 PONI/work/raw 转换仅在预设适配时做一次。默认实验室场景采用四月参照，旧合成场景保持原几何。面板运动中每秒采样最新姿态，暂停/限位后立即补最终结果，手动编辑/重新展开立即更新，相同revision不重算；关闭取消任务。调度复用单轴控制器的显式运行状态通知，不按静止防抖；晶格候选与机械照明分别缓存。1s采样不代表曝光积分，可能错过短暂反射。
 

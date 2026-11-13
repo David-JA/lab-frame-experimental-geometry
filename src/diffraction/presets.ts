@@ -35,11 +35,13 @@ export function withDefaultDiffractionParameters(input:SceneConfig,sampleId?:str
   const sample=c.devices.devices.find(d=>d.id===p.sample_id)!;
   sample.crystal!.cell={a:3.59033485,b:3.59033485,c:3.59033485,alpha_deg:90,beta_deg:90,gamma_deg:90};
   c.diffraction=defaultDiffraction(c,p.sample_id,p.detector_id)!;
+  if(input.diffraction?.intensity_model)c.diffraction.intensity_model={kind:input.diffraction.intensity_model.kind,sigma_g_invA:.001};
   return load_scene(c).save_state();
 }
 export function withAprilParameters(input:SceneConfig,sampleId?:string,detectorId?:string):SceneConfig {
   const c=withDefaultDiffractionParameters(input,sampleId,detectorId),p=c.diffraction!;
   if(input.diffraction){p.show_hkl=input.diffraction.show_hkl;p.hkl_limit=input.diffraction.hkl_limit;p.reflection_model=input.diffraction.reflection_model;p.spot_diameter_invA=input.diffraction.spot_diameter_invA;}
+  if(input.diffraction?.intensity_model)p.intensity_model=clone(input.diffraction.intensity_model);
   const detector=c.devices.devices.find(d=>d.id===p.detector_id)!;
   detector.detector={pixels:[4288,4288],pixel_size_mm:[0.1,0.1],provenance:'source_statement'};
   const hadSupport=!!detectorSupport(c,p.detector_id),mounted=withDetectorSupport(c,p.detector_id),support=detectorSupport(mounted,p.detector_id)!;

@@ -25,7 +25,7 @@ Lab-Frame Experimental Geometry 面向 **SSRF-BL12SW** 的单晶衍射实验，�
 
 衍射预览默认收起，运动中每秒更新一次，暂停后立即更新最终姿态；手动修改参数立即更新，收起后停算。这是瞬时采样，快速旋转时可能错过很短暂的反射。
 
-圆斑用黑底灰度显示，越亮表示几何响应越强；选中轮廓不改变灰度。这仍是均匀圆斑示意，高斯图样及真实实验强度预测的后续讨论见 [#3](https://github.com/David-JA/lab-frame-experimental-geometry/issues/3)。
+衍射预览可选择“圆斑示意（旧）”“三维高斯（像素积分）”或“三维均匀球（像素积分）”。三维模式从归一化倒易斑出发，经 Ewald 球面截取并按原始像素边界积分，保留跨帧强弱及板边损失；灰度上限固定，可整体调整，显示阈值不删除原始信号。旧配置继续使用圆斑示意，选中轮廓与 HKL 标签独立于信号。数值验收和复算方法见 [#3 A 验证记录](./docs/validation/issue3-forward/README.md)；B 真实实验强度/计数预测继续暂缓。
 
 主参数区可直接编辑“晶格常数 a / Å”；立方晶胞会联动 a=b=c，并重算晶面间距和衍射图。高级区可选择 hkl，查看只读的 d、当前能量对应的理论散射角 2θ 和 q=2π/d。衍射预览标题旁的“复位”恢复默认预览参数，保留装置位置与晶体取向。
 
@@ -59,6 +59,8 @@ npm run dev
 | 文档 | 用途 |
 |---|---|
 | [项目维护记忆](./docs/project_memory.md) | 架构、实现约定、维护注意事项及验证入口 |
+| [#3 A 三维反射斑前向模型 Spec](./docs/archive/20261113_issue3_reciprocal_spot_forward_spec.md) | A 工程交付完成，登记 Merge Ready；模型合同、验收与评审记录；B 暂缓 |
+| [#3 A 数值验证与复算](./docs/validation/issue3-forward/README.md) | 原始数值、固定标尺图、独立像素参照及复算命令 |
 | [已验收 Spec 归档](./docs/archive/README.md) | 已完成阶段的需求、评审与正式接受记录 |
 | [G0/G1 Spec](./docs/archive/20261109_issue38_g0_g1_minimal_spec.md) | 装配、运动学与晶体学；已正式接受，登记 Merge Ready |
 | [衍射预览 Spec](./docs/archive/20261111_diffraction_preview_spec.md) | 实时理想单晶首版；已完成并归档 |

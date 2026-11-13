@@ -22,7 +22,25 @@
         },
         "reflection_model": {"enum": ["fcc", "primitive"]},
         "hkl_limit": {"type": "integer", "minimum": 1, "maximum": 12},
-        "show_hkl": {"type": "boolean"}
+        "show_hkl": {"type": "boolean"},
+        "intensity_model": {
+          "type": "object", "additionalProperties": false, "required": ["kind"],
+          "properties": {
+            "kind": {"enum": ["gaussian_3d", "uniform_sphere_3d"]},
+            "sigma_g_invA": {"type": "number", "exclusiveMinimum": 0},
+            "gray_max": {"type": "number", "exclusiveMinimum": 0},
+            "display_threshold": {"type": "number", "minimum": 0},
+            "weights": {"type": "array", "items": {
+              "type": "object", "additionalProperties": false, "required": ["hkl", "total_relative_intensity"],
+              "properties": {
+                "hkl": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "integer", "minimum": -100, "maximum": 100}},
+                "total_relative_intensity": {"type": "number", "minimum": 0}
+              }
+            }}
+          },
+          "if": {"properties": {"kind": {"const": "gaussian_3d"}}},
+          "then": {"properties": {"sigma_g_invA": {}}, "required": ["sigma_g_invA"]}
+        }
       }
     },
     "schema_version": {

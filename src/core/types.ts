@@ -24,10 +24,16 @@ export type Motion =
   | { kind: 'xy_translation'; joints: [string, string]; axes: [Vec3, Vec3] };
 export interface Frame { id: string; parent: string; mount: Mount; motion: Motion }
 export interface SampleState { orientation_quaternion_xyzw: Quat; target_indices: Vec3; direction_type: DirectionType }
+export interface IntensityModel {
+  kind:'gaussian_3d'|'uniform_sphere_3d'; sigma_g_invA?:number;
+  weights?:{hkl:Vec3;total_relative_intensity:number}[];
+  gray_max?:number;display_threshold?:number;
+}
 export interface DiffractionSettings {
   sample_id: string; detector_id: string; energy_keV: number; spot_diameter_invA: number;
   beam_size_mm: [number, number]; sample_shape: { kind: 'cylinder' | 'box'; size_mm: Vec3 };
   reflection_model: 'fcc' | 'primitive'; hkl_limit: number; show_hkl: boolean;
+  intensity_model?:IntensityModel;
 }
 export interface SceneConfig {
   schema_version: 1;

@@ -12,6 +12,25 @@ const panel:Panel={center:[0,0,1000],x:[1,0,0],y:[0,1,0],normal:[0,0,1],pixels:[
 const k=8,source:[number,number,number]=[0,0,0];
 const centre=(u:number,v:number,p=panel)=>sub(scale(unit(pixelPoint(p,u,v)),k),[0,0,k]);
 describe('reciprocal density to raw pixel integrals',()=>{
+  it('integrates physical pixel groups without changing total or inventing edge pixels',()=>{
+    for(const d of [{kind:'gaussian_3d',sigma_g_invA:.0008},{kind:'uniform_sphere_3d',radius_g_invA:.002}] as Density[]){
+      for(const [u,v]of [[40.2,40.35],[80.2,40.35]]){
+        const g=centre(u,v),raw=integrateReflection(panel,source,g,k,d),coarse=integrateReflection(panel,source,g,k,d,1,[2,0,0],{pixelStride:4});
+        expect(raw.status,raw.reason).toBe('resolved');expect(coarse.status,coarse.reason).toBe('resolved');
+        const t=coarse.tile;expect(t.stride).toBe(4);
+        for(let j=0;j<t.height;j++)for(let i=0;i<t.width;i++){
+          let expected=0;
+          for(let y=t.v0+j*4;y<Math.min(panel.pixels[1],t.v0+(j+1)*4);y++)for(let x=t.u0+i*4;x<Math.min(panel.pixels[0],t.u0+(i+1)*4);x++){
+            const ri=x-raw.tile.u0,rj=y-raw.tile.v0;if(ri>=0&&rj>=0&&ri<raw.tile.width&&rj<raw.tile.height)expected+=raw.tile.data[rj*raw.tile.width+ri];
+          }
+          expect(Math.abs(t.data[j*t.width+i]-expected)).toBeLessThanOrEqual(1e-3*expected+1e-8*coarse.error_scale);
+        }
+        const preview=downsample([t],panel.pixels,[17,13]);
+        expect(preview.reduce((a,b)=>a+b,0)).toBeCloseTo(coarse.pixel_sum,8);
+        expect(coarse.pixel_sum).toBeCloseTo(raw.pixel_sum,5);
+      }
+    }
+  });
   it('preserves full signal at a second distance and converts g/Q density and surface units consistently',()=>{
     const d:Density={kind:'gaussian_3d',sigma_g_invA:.001},g=centre(40.2,40.35);
     const a=integrateReflection(panel,source,g,k,d),b=integrateReflection({...panel,center:[0,0,2000]},source,g,k,d);
@@ -29,6 +48,15 @@ describe('reciprocal density to raw pixel integrals',()=>{
     c.diffraction!.sample_shape={kind:'cylinder',size_mm:[.0001,.0001,.01]};
     const unresolved=computeForwardFrames(c,poses,options)[0];
     expect(unresolved.result.illumination.status).toBe('unresolved');expect(unresolved.result.integration_status).toBe('unresolved');
+  });
+  it('keeps the frame API raw by default even when a saved UI prefers adaptive preview',()=>{
+    const c=diffraction_demo_config();c.diffraction!.intensity_model={kind:'gaussian_3d',sigma_g_invA:.003,preview_sampling:'adaptive'};
+    const poses=[{id:'single',joints:{}}],options={hkls:[[2,0,0] as [number,number,number]]};
+    const raw=computeForwardFrames(c,poses,options)[0].result.images![0];
+    const grouped=computeForwardFrames(c,poses,{...options,adaptiveBinning:true})[0].result.images![0];
+    expect(raw.status).toBe('resolved');expect(grouped.status).toBe('resolved');
+    expect(raw.sampling_stride).toBe(1);expect(raw.tile.stride).toBeUndefined();expect(grouped.sampling_stride).toBeGreaterThan(1);
+    expect(Math.abs(raw.pixel_sum-grouped.pixel_sum)).toBeLessThan(1e-3*raw.pixel_sum+1e-6*raw.error_scale);
   });
   it('roundtrips optional model settings, preserves legacy and rejects bad weights atomically',()=>{
     const c=diffraction_demo_config(),legacy=load_scene(c).save_state();expect(legacy.diffraction).not.toHaveProperty('intensity_model');

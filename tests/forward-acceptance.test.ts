@@ -5,8 +5,12 @@ import { diffraction_demo_config } from '../src/example';
 import { load_scene } from '../src/core/scene';
 import { direction,inverseTranspose,lattice,mat3Vector,add,scale,unit,sub,cross } from '../src/core/math';
 import { HC_KEV_A,type Panel } from '../src/diffraction/model';
-import { computeForwardFrames } from '../src/diffraction/frames';
-import { integrateReflection,sphereIntegral,pixelPoint,downsample,type Density,type ReflectionImage } from '../src/diffraction/forward';
+import { computeForwardFrames as computeFrames } from '../src/diffraction/frames';
+import { integrateReflection as integrateRaw,sphereIntegral,pixelPoint,downsample,type Density,type ReflectionImage } from '../src/diffraction/forward';
+
+const gaussianQuadrature=process.env.FORWARD_GAUSSIAN_QUADRATURE==='plane'?'plane':'rings';
+const computeForwardFrames=(...args:Parameters<typeof computeFrames>)=>computeFrames(args[0],args[1],{...args[2],gaussianQuadrature});
+const integrateReflection=(...args:Parameters<typeof integrateRaw>)=>{args[7]={...args[7],gaussianQuadrature};return integrateRaw(...args);};
 
 const sum=(a:ArrayLike<number>)=>Array.from(a).reduce((a,b)=>a+b,0);
 const jsonImage=(i:ReflectionImage)=>({...i,tile:{...i.tile,data:Array.from(i.tile.data)}});
@@ -66,7 +70,10 @@ it('A1–A3: fixed-pose rocking, translated pixels/edges and two lattice reflect
   const panel:Panel={center:[0,0,1000],x,y,normal:cross(x,y),pixels:[81,65],pixel_size_mm:[.1,.15]};
   const target=[40.2,32.35],g=sub(scale(unit(pixelPoint(panel,...target as [number,number])),k),[0,0,k]);
   const A2=[];
-  for(const d of [{kind:'gaussian_3d',sigma_g_invA:.0001},{kind:'uniform_sphere_3d',radius_g_invA:.0004}] as Density[]){
+  const edgeDensities:Density[]=[{kind:'gaussian_3d',sigma_g_invA:.0001},{kind:'uniform_sphere_3d',radius_g_invA:.0004}];
+  // Wider Gaussian exercises the direct-plane path rather than only its narrow-peak fallback.
+  if(gaussianQuadrature==='plane')edgeDensities.push({kind:'gaussian_3d',sigma_g_invA:.002});
+  for(const d of edgeDensities){
     const cases=[];
     for(const [u,v]of [[40,32],[40.25,32.25],[40.5,32],[40.5,32.5],[40.75,32.25],[40.2,32.35],[80.2,32.35],[80.5,32.35],[80.65,32.35],[81.5,32.35]]){
       const moved={...panel,center:add(panel.center,add(scale(x,(target[0]-u)*.1),scale(y,(v-target[1])*.15)))};
@@ -97,5 +104,5 @@ it('A1–A3: fixed-pose rocking, translated pixels/edges and two lattice reflect
   expect(overlapPixels).toBeGreaterThan(0);
   const A3={snapshot:overlap,panel:both.result.panel,source:both.result.illumination.centroid_lab_mm,crystal_to_lab:both.crystal_to_lab,images:all.map(jsonImage),single_images:singles.map(jsonImage),raw:{u0,v0,width,height,first:Array.from(rawFirst),second:Array.from(rawSecond),combined:Array.from(rawCombined)},maxRawResidual,maxRawPixel,overlapPixels,maxPreviewResidual:maxResidual,preview_sum:sum(merged)};
   const output=process.env.FORWARD_AUDIT_OUTPUT;
-  if(output){mkdirSync(dirname(output),{recursive:true});writeFileSync(output,JSON.stringify({algorithm:'ewald-pixel-rings-v1',convention:'g=1/d, A^-1; g_ref=1 A^-1; dS=k^2 dOmega',unit_exposure:true,default_integration_options:{relativeTolerance:2e-6,maxPixels:200000,maxEvaluations:2000000,maxDepth:16},acceptance_gate:{frame_relative:1e-3,frame_absolute_scale_fraction:1e-6,pixel_relative:1e-3,pixel_absolute_scale_fraction:1e-8,oracle_absolute_scale_fraction:1e-9},A1,A2,A3},null,2),'utf8');}
+  if(output){mkdirSync(dirname(output),{recursive:true});writeFileSync(output,JSON.stringify({algorithm:gaussianQuadrature==='plane'?'ewald-gaussian-plane-with-ring-fallback-v1':'ewald-pixel-rings-v1',convention:'g=1/d, A^-1; g_ref=1 A^-1; dS=k^2 dOmega',unit_exposure:true,default_integration_options:{relativeTolerance:2e-6,maxPixels:200000,maxEvaluations:2000000,maxDepth:16},acceptance_gate:{frame_relative:1e-3,frame_absolute_scale_fraction:1e-6,pixel_relative:1e-3,pixel_absolute_scale_fraction:1e-8,oracle_absolute_scale_fraction:1e-9},A1,A2,A3},null,2),'utf8');}
 },60000);

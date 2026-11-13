@@ -114,12 +114,17 @@ export class DiffractionModel {
     const images:ReflectionImage[]|undefined=p.intensity_model?[]:undefined;
     let remainingPixels=options.maxPixels??200000,remainingEvaluations=options.maxEvaluations??2000000;
     let excited_count=0;const lambda=HC_KEV_A/p.energy_keV,m=scene.get_frame_transform('LAB',sample.crystal!.frame).matrix;
+    const support=p.intensity_model?.kind==='gaussian_3d'?8*p.intensity_model.sigma_g_invA!:p.spot_diameter_invA/2;
+    const activeEstimate=options.adaptiveBinning?this.#candidates.filter(candidate=>(!options.hkls||options.hkls.some(h=>h.every((v,i)=>v===candidate.hkl[i])))&&Math.abs(norm(add(direction(m,candidate.g),[0,0,1/lambda]))-1/lambda)<support).length:1;
+    // Share interactive effort over potentially excited reflections. This only
+    // changes grouping; all HKLs remain in the calculation and retain W.
+    const targetPreviewCells=options.targetPreviewCells??Math.min(1024,Math.max(64,Math.floor(remainingEvaluations/(Math.max(1,activeEstimate)*80))));
     if(source)for(const candidate of this.#candidates){
       if(options.hkls&&!options.hkls.some(h=>h.every((v,i)=>v===candidate.hkl[i])))continue;
       if(p.intensity_model){
         const im=p.intensity_model,g_lab=direction(m,candidate.g),W=im.weights?.find(w=>w.hkl.every((v,i)=>v===candidate.hkl[i]))?.total_relative_intensity??1;
         const density:Density=im.kind==='gaussian_3d'?{kind:im.kind,sigma_g_invA:im.sigma_g_invA!}:{kind:im.kind,radius_g_invA:p.spot_diameter_invA/2};
-        const image=integrateReflection(panel,source,g_lab,1/lambda,density,W,candidate.hkl,{...options,maxPixels:Math.max(1,remainingPixels),maxEvaluations:Math.max(1,remainingEvaluations)});
+        const image=integrateReflection(panel,source,g_lab,1/lambda,density,W,candidate.hkl,{...options,targetPreviewCells,maxPixels:Math.max(1,remainingPixels),maxEvaluations:Math.max(1,remainingEvaluations)});
         if((remainingPixels<1||remainingEvaluations<1)&&(image.tile.data.length>remainingPixels||image.evaluations>remainingEvaluations)){image.status='unresolved';image.reason='Frame integration budget reached before this HKL could be completed';}
         images!.push(image);
         remainingPixels-=image.tile.width*image.tile.height;remainingEvaluations-=image.evaluations;

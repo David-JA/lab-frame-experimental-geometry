@@ -1,5 +1,30 @@
 import { test, expect, type Page } from '@playwright/test';
 
+test('Broad-spot usability: adaptive grouping, honest raw mode, matching and one-shot brightness',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
+  await page.locator('#dp-reference').evaluate(el=>(el as HTMLDetailsElement).open=true);await page.locator('#dp-demo').click();await page.locator('#dp-reference').evaluate(el=>(el as HTMLDetailsElement).open=false);
+  const panel=page.locator('#diffraction-panel'),result=()=>panel.evaluate(el=>JSON.parse((el as HTMLElement).dataset.result!));
+  await page.locator('#dp-intensity').selectOption('gaussian_3d');await page.locator('#dp-sigma').fill('0.01');await page.locator('#dp-sigma').press('Tab');
+  await expect(panel).toHaveAttribute('data-integration','resolved');
+  const broad=await result();expect(broad.sampling_stride).toBeGreaterThan(1);expect(broad.raw_sum).toBeNull();expect(broad.integrated_sum).toBeGreaterThan(0);expect(broad.preview_sum).toBeCloseTo(broad.integrated_sum,7);
+  await expect(page.locator('#dp-status')).toContainText('组内细节未解析');
+  await page.locator('#dp-fit-gray').click();const fitted=await result();expect(fitted.gray_max).toBeGreaterThan(0);expect(fitted.integrated_sum).toBe(broad.integrated_sum);
+  await page.locator('#dp-energy').fill('100');await page.locator('#dp-energy').press('Tab');expect((await result()).gray_max).toBe(fitted.gray_max);
+  await page.locator('#dp-sampling').selectOption('raw');await expect(panel).toHaveAttribute('data-integration','unresolved');await expect(page.locator('#dp-status')).toContainText('预算');await expect(page.locator('#dp-status')).not.toContainText('Nonfinite');
+  const beforeFailedFit=(await result()).gray_max;await page.locator('#dp-fit-gray').click();await expect(page.locator('#dp-status')).toContainText('积分尚未完成');expect((await result()).gray_max).toBe(beforeFailedFit);
+  await page.locator('#dp-sampling').selectOption('adaptive');await expect(panel).toHaveAttribute('data-integration','resolved');
+  await page.locator('#dp-width-default').click();await expect(page.locator('#dp-sigma')).toHaveValue('0.001');
+  await page.locator('#dp-width-down').click();expect(Number(await page.locator('#dp-sigma').inputValue())).toBeCloseTo(.0008,10);
+  await page.locator('#dp-width-up').click();expect(Number(await page.locator('#dp-sigma').inputValue())).toBeCloseTo(.001,10);
+  await page.locator('#dp-match-width').click();await expect(page.locator('#dp-intensity')).toHaveValue('uniform_sphere_3d');expect(Number(await page.locator('#dp-diameter').inputValue())).toBeCloseTo(4*Math.sqrt(Math.log(2))*.001,7);
+  await page.locator('#dp-match-width').click();await expect(page.locator('#dp-intensity')).toHaveValue('gaussian_3d');expect(Number(await page.locator('#dp-sigma').inputValue())).toBeCloseTo(.001,10);
+  await page.locator('#dp-sigma').fill('0.01');await page.locator('#dp-sigma').press('Tab');await page.locator('#dp-fit-gray').click();
+  await panel.evaluate(el=>el.scrollTop=0);await page.screenshot({path:'artifacts/issue3-usability/desktop.png'});
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'artifacts/issue3-usability/mobile.png',fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
+});
+
 test('Issue 3 A: 3D integrated modes preserve fixed scale, raw totals, configuration and narrow layout',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
@@ -64,7 +89,7 @@ test('DP07–DP09: live diffraction, scene parameters, no illumination, restore 
   await expect(panel.locator('.diffraction-key')).toContainText('越亮');
   await expect(graySpot).toHaveAttribute('fill','#f2f2f2');const originalOpacity=await graySpot.getAttribute('fill-opacity');
   await page.locator('#dp-spots').selectOption('2,0,0');await expect(page.locator('#dp-detail')).toContainText('原始像素');
-  await expect(graySpot).toHaveAttribute('fill','#f2f2f2');await expect(graySpot).toHaveAttribute('fill-opacity',originalOpacity!);await expect(panel.locator('.diffraction-selection')).toHaveCount(1);
+  await expect(graySpot).toHaveAttribute('fill','#f2f2f2');await expect(graySpot).toHaveAttribute('fill-opacity',originalOpacity!);await expect(panel.locator('.diffraction-selection')).toHaveCount(0);
   await page.locator('#dp-energy').fill('110');await page.locator('#dp-energy').press('Tab');
   await expect(page.locator('#dp-energy')).toHaveValue('110');
   await page.locator('#dp-energy').fill('0');await page.locator('#dp-energy').press('Tab');

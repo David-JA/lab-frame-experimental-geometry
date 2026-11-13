@@ -28,6 +28,7 @@ export interface IntensityModel {
   kind:'gaussian_3d'|'uniform_sphere_3d'; sigma_g_invA?:number;
   weights?:{hkl:Vec3;total_relative_intensity:number}[];
   gray_max?:number;display_threshold?:number;
+  preview_sampling?:'adaptive'|'raw';
 }
 export interface DiffractionSettings {
   sample_id: string; detector_id: string; energy_keV: number; spot_diameter_invA: number;

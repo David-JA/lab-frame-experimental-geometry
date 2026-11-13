@@ -59,6 +59,7 @@ npm run dev
 | 文档 | 用途 |
 |---|---|
 | [项目维护记忆](./docs/project_memory.md) | 架构、实现约定、维护注意事项及验证入口 |
+| [#3 A 三维反射斑前向模型 Spec](./discuss/20261113_issue3_reciprocal_spot_forward_spec.md) | 三维倒易斑、Ewald 截取到原始像素积分的设计；尚未实施，B 暂缓 |
 | [已验收 Spec 归档](./docs/archive/README.md) | 已完成阶段的需求、评审与正式接受记录 |
 | [G0/G1 Spec](./docs/archive/20261109_issue38_g0_g1_minimal_spec.md) | 装配、运动学与晶体学；已正式接受，登记 Merge Ready |
 | [衍射预览 Spec](./docs/archive/20261111_diffraction_preview_spec.md) | 实时理想单晶首版；已完成并归档 |

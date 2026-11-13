@@ -43,4 +43,4 @@ Remove-Item Env:FORWARD_AUDIT_OUTPUT
 
 当前执行 `npm test -- --run` 为132项单测通过；`npm run build`包含typecheck并通过；25条真实Edge浏览器流程通过。浏览器运行仅为该进程补 loopback `NO_PROXY`，在正常Windows用户边界使用独立4173测试服务；未停止用户的5173服务。代码保留原有约1秒运动采样与关窗停算，新增预算失败/未解析状态不宣称空帧合法。包体积提示仍存在，本轮没有扩展为拆包任务。
 
-实现的[数学与兼容合同、完整评审处置](../../../discuss/20261113_issue3_reciprocal_spot_forward_spec.md)由 Spec 持有；本批实现提交至 [PR #4](https://github.com/David-JA/lab-frame-experimental-geometry/pull/4) 审查，尚未合并或发布，不代表在线版本已更新。
+实现的[数学与兼容合同、完整评审处置](../../archive/20261113_issue3_reciprocal_spot_forward_spec.md)由归档 Spec 持有。A 工程交付已登记 Merge Ready，用户授权完成收尾后合并 [PR #4](https://github.com/David-JA/lab-frame-experimental-geometry/pull/4) 并发布；实际部署版本与成功状态须查对应 merge SHA 的 Pages Actions 和线上核查，不能仅凭授权或此记录认定已上线。

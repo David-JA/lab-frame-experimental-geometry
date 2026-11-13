@@ -59,7 +59,7 @@ npm run dev
 | 文档 | 用途 |
 |---|---|
 | [项目维护记忆](./docs/project_memory.md) | 架构、实现约定、维护注意事项及验证入口 |
-| [#3 A 三维反射斑前向模型 Spec](./discuss/20261113_issue3_reciprocal_spot_forward_spec.md) | 模型合同、实施及 Astra high 评审记录；B 暂缓 |
+| [#3 A 三维反射斑前向模型 Spec](./docs/archive/20261113_issue3_reciprocal_spot_forward_spec.md) | A 工程交付完成，登记 Merge Ready；模型合同、验收与评审记录；B 暂缓 |
 | [#3 A 数值验证与复算](./docs/validation/issue3-forward/README.md) | 原始数值、固定标尺图、独立像素参照及复算命令 |
 | [已验收 Spec 归档](./docs/archive/README.md) | 已完成阶段的需求、评审与正式接受记录 |
 | [G0/G1 Spec](./docs/archive/20261109_issue38_g0_g1_minimal_spec.md) | 装配、运动学与晶体学；已正式接受，登记 Merge Ready |

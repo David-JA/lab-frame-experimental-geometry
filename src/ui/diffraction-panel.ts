@@ -1,5 +1,5 @@
 import type { Scene } from '../core/scene';
-import type { DiffractionSettings, SceneConfig, Vec3 } from '../core/types';
+import type { DiffractionSettings, IntensityModel, SceneConfig, Vec3 } from '../core/types';
 import { lattice, inverseTranspose, mat3Vector, norm } from '../core/math';
 import { defaultDiffraction, detectorPanel, DiffractionModel, HC_KEV_A, isCubic, projectRay, type Preview, type Spot } from '../diffraction/model';
 import { withAprilParameters, withDefaultDiffractionParameters, detectorNormalDistance } from '../diffraction/presets';
@@ -7,12 +7,14 @@ import { detectorSupport, withDetectorSupport } from '../core/detector-support';
 import { diffraction_demo_config } from '../example';
 import { PreviewRefresh } from './preview-refresh';
 import { math, typesetMath } from './math-typesetting';
+import { downsample } from '../diffraction/forward';
 
 const NS='http://www.w3.org/2000/svg';
 const numberText=(v:number,digits=4)=>Number(v.toFixed(digits)).toString();
 const hklText=(s:Spot)=>'('+s.hkl.join(' ')+')';
 export class DiffractionPanel {
   #model=new DiffractionModel();#open=false;#formKey='';#selected='';#result?:Preview;#refresh:PreviewRefresh;
+  #lastIntensity?:IntensityModel;
   constructor(private host:HTMLElement,private entry:HTMLButtonElement,private getScene:()=>Scene,private apply:(next:SceneConfig)=>boolean){
     this.#refresh=new PreviewRefresh(()=>this.getScene().revision,()=>this.refresh());
     host.className='diffraction-panel';host.hidden=true;host.setAttribute('aria-label','衍射预览');
@@ -20,6 +22,8 @@ export class DiffractionPanel {
 <p id="dp-status" class="diffraction-status" role="status"></p><p class="small">运动中每秒更新一次，暂停后更新最终姿态。</p><p id="dp-light-info" class="small"></p>
 <svg id="dp-plot" viewBox="0 0 500 500" role="img" aria-label="预测衍射图，raw 左上像素坐标"></svg>
 <p class="small diffraction-key"><span class="spot-key">●</span> 预测反射：越亮表示几何响应越强 <span class="direct-key">⊕</span> 直射束位置 · raw 左上原点</p>
+<label class="parameter">斑形与信号模型<select id="dp-intensity"><option value="legacy">圆斑示意（旧）</option><option value="gaussian_3d">三维高斯（像素积分）</option><option value="uniform_sphere_3d">三维均匀球（像素积分）</option></select></label>
+<div id="dp-intensity-fields" class="diffraction-fields" hidden><label>高斯 σ_g / Å⁻¹<input id="dp-sigma" type="number" min="0" step="0.0001"></label><label>固定灰度上限 / 相对单位<input id="dp-gray-max" type="number" min="0" step="any"></label><label>显示阈值 / 相对单位<input id="dp-display-threshold" type="number" min="0" step="any"></label></div><p id="dp-intensity-note" class="small"></p>
 <div class="diffraction-fields"><label>能量 / keV<input id="dp-energy" type="number" min="1" max="500" step="any"></label><div class="diffraction-readout"><span>受照体积重心到平板的<br>垂直距离 / mm</span><output id="dp-normal-distance" aria-label="受照体积重心到平板的垂直距离">—</output></div><label><span>晶格常数 ${math('a','a')} / ${math(String.raw`\text{\AA}`,'Å')}</span><input id="dp-cell-a" type="number" min="0" step="0.0001"></label><label><span>倒易斑点直径 / ${math(String.raw`\text{\AA}^{-1}`,'Å⁻¹')}</span><input id="dp-diameter" type="number" min="0" max="0.2" step="0.01"></label><label class="check"><input id="dp-labels" type="checkbox">显示 HKL</label></div><p id="dp-lattice-note" class="small"></p>
 <p class="small">能量和照明尺寸的增减箭头每次调整 1 个对应单位；也可直接输入小数。</p>
 <p class="small">换距或横移请调整左侧探测器支撑架的固定位置（LAB X/Z）。该读数从当前受照体积重心垂直量到平板，与衍射图使用同一发射点；没有可用重心时显示“—”。</p>
@@ -40,7 +44,7 @@ export class DiffractionPanel {
 <h3>低阶带轴骨架参考</h3><p id="dp-skeleton-context" class="small"></p><p class="small">按理想 FCC、样品位于固定标定参考点、${math('[100]','[100]')} 或 ${math('[110]','[110]')} 正对光束且 ${math('[001]','[001]')} 向上计算，不改变当前姿态。临界直径只表示模型允许反射出现，不是实测峰宽；表中仅检查斑点中心是否落在面板内。</p>
 <table class="diffraction-reference-table"><thead><tr><th>带轴 / 反射组</th><th>临界直径<br>${math(String.raw`\text{\AA}^{-1}`,'Å⁻¹')}</th><th>面板内<br>中心数</th></tr></thead><tbody id="dp-skeleton-rows"></tbody></table><p id="dp-skeleton-result" class="small"></p>
 <button id="dp-demo">载入理想对中示例（替换当前配置）</button><p class="small">示例采用合成装配与取向，可看到 (200) 反射；不是四月实测姿态。</p></details>
-<p class="small diffraction-caveat">近似模型：均匀光束、单点发射、有限倒易球局部截面。用途是检查几何变化，不替代标定或实测信号。</p>`;
+<p id="dp-caveat" class="small diffraction-caveat">近似模型：均匀光束、单点发射、有限倒易球局部截面。用途是检查几何变化，不替代标定或实测信号。</p>`;
     entry.setAttribute('aria-controls',host.id);entry.setAttribute('aria-expanded','false');entry.onclick=()=>this.setOpen(!this.#open);
     this.el('close').onclick=()=>this.setOpen(false);
     this.el('reset').onclick=()=>this.edit(c=>{
@@ -58,6 +62,15 @@ export class DiffractionPanel {
     });
     this.el<HTMLInputElement>('cell-a').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();this.el<HTMLInputElement>('cell-a').blur();}};
     this.el<HTMLInputElement>('diameter').onchange=()=>this.settingsEdit(p=>p.spot_diameter_invA=this.num('diameter'));
+    this.el<HTMLSelectElement>('intensity').onchange=()=>this.settingsEdit(p=>{
+      const kind=this.el<HTMLSelectElement>('intensity').value;
+      if(p.intensity_model)this.#lastIntensity=structuredClone(p.intensity_model);
+      if(kind==='legacy')delete p.intensity_model;
+      else p.intensity_model={...(p.intensity_model??this.#lastIntensity??{}),kind:kind as IntensityModel['kind'],sigma_g_invA:p.intensity_model?.sigma_g_invA??this.#lastIntensity?.sigma_g_invA??.001};
+    });
+    this.el<HTMLInputElement>('sigma').onchange=()=>this.settingsEdit(p=>{if(p.intensity_model)p.intensity_model.sigma_g_invA=this.num('sigma');});
+    this.el<HTMLInputElement>('gray-max').onchange=()=>this.settingsEdit(p=>{if(p.intensity_model)p.intensity_model.gray_max=this.num('gray-max');});
+    this.el<HTMLInputElement>('display-threshold').onchange=()=>this.settingsEdit(p=>{if(p.intensity_model)p.intensity_model.display_threshold=this.num('display-threshold');});
     this.el<HTMLInputElement>('labels').onchange=()=>this.settingsEdit(p=>p.show_hkl=this.el<HTMLInputElement>('labels').checked);
     this.el<HTMLSelectElement>('model').onchange=()=>this.settingsEdit(p=>p.reflection_model=this.el<HTMLSelectElement>('model').value as 'fcc'|'primitive');
     this.el('enable-support').onclick=()=>this.edit(c=>{const p=this.parameters(c);if(!p)throw new Error('请先选择样品与探测器。');return withDetectorSupport(c,p.detector_id);});
@@ -108,10 +121,19 @@ export class DiffractionPanel {
       const select=this.el<HTMLSelectElement>(id),previous=select.value;select.replaceChildren(new Option('请选择',''),...c.devices.devices.filter(filter).map(d=>new Option(d.id,d.id)));
       select.value=selected??previous;
     }
-    for(const id of ['energy','cell-a','diameter','labels','model','reset','apply-shape'])this.el<HTMLInputElement|HTMLButtonElement>(id).disabled=!p;
+    for(const id of ['energy','cell-a','diameter','labels','model','reset','apply-shape','intensity'])this.el<HTMLInputElement|HTMLButtonElement>(id).disabled=!p;
     this.el('calibration-distance').textContent=p?numberText(Math.abs(detectorNormalDistance(c,p.detector_id)),8):'—';
     this.el('enable-support').hidden=!p||!!detectorSupport(c,p.detector_id);
     if(!p){this.el<HTMLDetailsElement>('advanced').open=true;this.spacing();return;}
+    this.el<HTMLSelectElement>('intensity').disabled=!p;
+    this.el<HTMLSelectElement>('intensity').value=p.intensity_model?.kind??'legacy';
+    this.el('intensity-fields').hidden=!p.intensity_model;
+    this.el<HTMLInputElement>('sigma').disabled=p.intensity_model?.kind!=='gaussian_3d';
+    this.el<HTMLInputElement>('diameter').disabled=p.intensity_model?.kind==='gaussian_3d';
+    const intensityValues={'sigma':p.intensity_model?.sigma_g_invA??.001,'gray-max':p.intensity_model?.gray_max??100,'display-threshold':p.intensity_model?.display_threshold??0};
+    for(const [id,v]of Object.entries(intensityValues))if(force||document.activeElement!==this.el(id))this.el<HTMLInputElement>(id).value=String(v);
+    this.el('intensity-note').textContent=p.intensity_model?'固定姿态、单位曝光的相对像素积分。σ_g 是倒易空间标准差，均匀球使用倒易直径；均未按实测峰宽标定。512² 预览格按原始像素信号求和，缩图前后总量保持；灰度上限跨帧固定，显示阈值不删除原始信号。':'旧圆斑为几何示意，不是积分强度图。选择三维模型后，强度和落点由同一次 Ewald 球面截取给出。';
+    this.el('caveat').textContent=p.intensity_model?'理想模型：均匀光束、受照重心单点发射、三维倒易斑的 Ewald 球面与像素边界积分。每帧为固定姿态单位曝光的相对信号，不替代标定、材料强度或实测计数。':'近似模型：均匀光束、单点发射、有限倒易球局部截面。用途是检查几何变化，不替代标定或实测信号。';
     const cell=c.devices.devices.find(d=>d.id===p.sample_id)!.crystal!.cell;
     const values:Record<string,string|number>={energy:p.energy_keV,'cell-a':cell.a,diameter:p.spot_diameter_invA,model:p.reflection_model,shape:p.sample_shape.kind,'size-x':p.sample_shape.size_mm[0],'size-y':p.sample_shape.size_mm[1],'size-z':p.sample_shape.size_mm[2],'beam-x':p.beam_size_mm[0],'beam-y':p.beam_size_mm[1],limit:p.hkl_limit};
     this.el('lattice-note').innerHTML=isCubic(cell)?`立方晶格：修改 ${math('a','a')} 会同步更新 ${math('a=b=c','a=b=c')} 和参考晶面间距 ${math('d','d')}；失去焦点或按 Enter 后应用。`:`当前为非立方晶胞：这里只修改 ${math('a','a')}，保留 ${math('b,c','b、c')} 和夹角；其他晶胞参数可在配置 JSON 中编辑。`;
@@ -170,12 +192,22 @@ export class DiffractionPanel {
   private svg(tag:string,attributes:Record<string,string|number>,text?:string){const el=document.createElementNS(NS,tag);for(const [key,value]of Object.entries(attributes))el.setAttribute(key,String(value));if(text!==undefined)el.textContent=text;return el;}
   private draw(){
     const svg=this.el<SVGElement & HTMLElement>('plot'),r=this.#result,p=this.parameters(this.getScene().save_state());svg.replaceChildren();
+    delete this.host.dataset.integration;delete this.host.dataset.rawSum;delete this.host.dataset.previewSum;
     svg.append(this.svg('rect',{x:42,y:18,width:438,height:438,fill:'#000000',stroke:'#59636c','stroke-width':1}));
     const select=this.el<HTMLSelectElement>('spots');select.replaceChildren(new Option('请选择反射',''));
     this.el('detail').textContent='点击图中斑点或选择反射，查看详情。';this.el('source').textContent='';this.el('light-info').textContent='';this.host.dataset.revision=String(r?.revision??-1);
     this.host.dataset.result=JSON.stringify({revision:-1,spots:[]});this.host.dataset.spotCount='0';this.host.dataset.illumination='unavailable';
     this.el('normal-distance').textContent=r?.source_normal_distance_mm!==undefined?numberText(r.source_normal_distance_mm,8):'—';
     if(!r)return;
+    let rawSum=0,previewSum=0;
+    if(r.images){
+      const pixels=downsample(r.images.map(i=>i.tile),r.panel.pixels,[512,512]);
+      rawSum=r.images.reduce((s,i)=>s+i.pixel_sum,0);previewSum=pixels.reduce((s,v)=>s+v,0);
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=512;
+      const context=canvas.getContext('2d')!,data=context.createImageData(512,512),upper=p?.intensity_model?.gray_max??100,threshold=p?.intensity_model?.display_threshold??0;
+      pixels.forEach((v,i)=>{const gray=v<threshold?0:Math.round(255*Math.min(1,v/upper));data.data[4*i]=data.data[4*i+1]=data.data[4*i+2]=gray;data.data[4*i+3]=255;});
+      context.putImageData(data,0,0);svg.append(this.svg('image',{x:42,y:18,width:438,height:438,href:canvas.toDataURL(),'image-rendering':'pixelated',class:'diffraction-intensity'}));
+    }
     if(p){
       const scene=this.getScene(),c=scene.save_state(),center=scene.get_sample_point(p.sample_id,'center').position,beam=c.assembly.beam.point_mm;
       const size=p.sample_shape.size_mm,shape=p.sample_shape.kind==='cylinder'?`圆柱 Ø${numberText(size[0])}×${numberText(size[2])} mm`:`长方体 ${size.map(v=>numberText(v)).join('×')} mm`;
@@ -194,7 +226,7 @@ export class DiffractionPanel {
       const key=spot.hkl.join(','),cx=x(spot.u),cy=y(spot.v),selected=key===this.#selected;
       // Minimum visible marker is independent of physical spot support and excitation threshold.
       const radius=Math.max(3,spot.radius_mm/r.panel.pixel_size_mm[0]/width*438),color=selected?'#ff91c5':'#e1e1e1';
-      svg.append(this.svg('circle',{cx,cy,r:radius,fill:'#f2f2f2','fill-opacity':spot.weight,class:'diffraction-spot','data-hkl':key}));
+      if(!r.images)svg.append(this.svg('circle',{cx,cy,r:radius,fill:'#f2f2f2','fill-opacity':spot.weight,class:'diffraction-spot','data-hkl':key}));
       // Selection is a separate annotation; it does not recolor or brighten the signal.
       if(selected)svg.append(this.svg('circle',{cx,cy,r:radius+3,fill:'none',stroke:'#ff91c5','stroke-width':1.5,class:'diffraction-selection'}));
       const hit=this.svg('circle',{cx,cy,r:Math.max(9,radius),fill:'transparent',class:'diffraction-hit'});hit.addEventListener('click',()=>{this.#selected=key;this.draw();});svg.append(hit);
@@ -211,12 +243,20 @@ export class DiffractionPanel {
     if(selected){
       this.el('detail').innerHTML=`${math(`(${selected.hkl.join(',')})`,hklText(selected))} · ${math(String.raw`d=${numberText(selected.d_A,5)}\,\text{\AA}`,`d=${numberText(selected.d_A,5)} Å`)} · ${math(String.raw`2\theta=${numberText(selected.two_theta_deg,4)}^\circ`,`2θ=${numberText(selected.two_theta_deg,4)}°`)}<br>原始像素 ${math(`(u,v)=(${numberText(selected.u,2)},${numberText(selected.v,2)})`,`(u, v)=(${numberText(selected.u,2)}, ${numberText(selected.v,2)})`)}<br>偏离衍射条件 ${math(String.raw`${numberText(selected.error_invA,6)}\,\text{\AA}^{-1}`,`${numberText(selected.error_invA,6)} Å⁻¹`)} · 相对几何响应 ${numberText(selected.weight,3)}`;
       typesetMath(this.el('detail'));
+      const image=r.images?.find(i=>i.hkl.every((v,j)=>v===selected.hkl[j]));
+      if(image){const detail=document.createElement('p');detail.textContent=`W=${numberText(image.W,5)} · 全球面积分 ${numberText(image.sphere_integral,6)} · 原始像素和 ${numberText(image.pixel_sum,6)} · 板内接收比例估计 ${image.received_fraction_estimate===null?'—':numberText(image.received_fraction_estimate,6)} · ${image.status==='resolved'?'积分已收敛':image.reason}`;this.el('detail').append(detail);}
     }
     const light=r.illumination;this.host.dataset.spotCount=String(r.spots.length);this.host.dataset.illumination=light.status;this.host.dataset.computeMs=String(r.duration_ms);
     const annotation=p?.show_hkl&&labels<r.spots.length?`；${r.spots.length-labels} 个标签未展开，可从列表查看`:'';
     this.message(light.status==='outside'?'光束未照到样品。':light.status==='unresolved'?'交叠低于当前采样分辨率，暂不生成信号。':r.spots.length?`面板内 ${r.spots.length} 个预测反射${annotation}`:r.excited_count?'有反射满足衍射条件，但均落在面板外。':'当前姿态下没有反射满足衍射条件。');
+    if(r.images&&light.status==='lit'){
+      const failures=r.images.filter(i=>i.status==='unresolved');
+      this.message(failures.length?`积分未完成：${failures[0].reason}；当前图像不能作为合格数值结果。`:`原始像素和 ${numberText(rawSum,6)}；512² 预览总和 ${numberText(previewSum,6)}；${r.spots.length} 个入板反射（计算支持内）。`,failures.length>0);
+    }
     this.el('source').textContent=(light.centroid_lab_mm?`发射重心 LAB (${light.centroid_lab_mm.map(v=>numberText(v,4)).join(', ')}) mm；交叠体积约 ${numberText(light.volume_mm3,6)} mm³。`:'')+` 体积积分 ${light.resolution}×${light.resolution}；枚举各指标 −${p?.hkl_limit}…${p?.hkl_limit}。`;
     this.host.dataset.result=JSON.stringify({revision:r.revision,source:light.centroid_lab_mm,source_normal_distance_mm:r.source_normal_distance_mm,spots:r.spots.map(s=>({hkl:s.hkl,u:s.u,v:s.v,weight:s.weight}))});
+    if(r.images){this.host.dataset.integration=r.integration_status;this.host.dataset.rawSum=String(rawSum);this.host.dataset.previewSum=String(previewSum);this.host.dataset.result=JSON.stringify({revision:r.revision,mode:p?.intensity_model?.kind,source:light.centroid_lab_mm,source_normal_distance_mm:r.source_normal_distance_mm,integration:r.integration_status,raw_sum:rawSum,preview_sum:previewSum,gray_max:p?.intensity_model?.gray_max??100,spots:r.spots.map(s=>({hkl:s.hkl,u:s.u,v:s.v})),images:r.images.filter(i=>i.pixel_sum>0||i.status==='unresolved').map(i=>({hkl:i.hkl,pixel_sum:i.pixel_sum,sphere_integral:i.sphere_integral,tail_bound:i.tail_bound,estimated_quadrature_error:i.estimated_quadrature_error,status:i.status,reason:i.reason}))});}
+    else{delete this.host.dataset.integration;delete this.host.dataset.rawSum;delete this.host.dataset.previewSum;}
   }
   dispose(){this.#refresh.dispose();}
 }

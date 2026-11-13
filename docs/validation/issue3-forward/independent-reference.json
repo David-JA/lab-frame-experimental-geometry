@@ -1,0 +1,1658 @@
+{
+  "status": "PASS",
+  "method": "Independent scipy Cartesian detector-plane quadrature; production uses polar ring arcs",
+  "font": "C:\\Windows\\Fonts\\msyh.ttc",
+  "cases": {
+    "A1": [
+      {
+        "kind": "gaussian_3d",
+        "offset_deg": -0.4,
+        "J": 5.302502755383101e-17,
+        "pixel_sum": 0,
+        "board_reference": 5.283863832643123e-17,
+        "board_reference_error": 4.2355119112037904e-17,
+        "peak_scale": 966.8635108454487
+      },
+      {
+        "kind": "gaussian_3d",
+        "offset_deg": -0.0911333618604518,
+        "J": 96.68635108473102,
+        "pixel_sum": 96.68635108470626,
+        "board_reference": 96.68635108517952,
+        "board_reference_error": 1.892673478726348e-08,
+        "peak_scale": 966.8635108454487
+      },
+      {
+        "kind": "gaussian_3d",
+        "offset_deg": -0.05,
+        "J": 483.4420380904024,
+        "pixel_sum": 483.4420378999577,
+        "board_reference": 483.44203808925766,
+        "board_reference_error": 1.3075212610135712e-08,
+        "peak_scale": 966.8635108454487
+      },
+      {
+        "kind": "gaussian_3d",
+        "offset_deg": 0,
+        "J": 966.8635108454487,
+        "pixel_sum": 966.863510846587,
+        "board_reference": 966.8635108454365,
+        "board_reference_error": 2.5596033723133236e-08,
+        "peak_scale": 966.8635108454487
+      },
+      {
+        "kind": "gaussian_3d",
+        "offset_deg": 0.05,
+        "J": 483.4214721998365,
+        "pixel_sum": 483.42147194828874,
+        "board_reference": 483.421472201058,
+        "board_reference_error": 1.3074979935158734e-08,
+        "peak_scale": 966.8635108454487
+      },
+      {
+        "kind": "gaussian_3d",
+        "offset_deg": 0.09112826453621159,
+        "J": 96.68635108464652,
+        "pixel_sum": 96.68635108451468,
+        "board_reference": 96.68635108463857,
+        "board_reference_error": 1.8925178835605652e-08,
+        "peak_scale": 966.8635108454487
+      },
+      {
+        "kind": "gaussian_3d",
+        "offset_deg": 0.4,
+        "J": 5.1882513991112034e-17,
+        "pixel_sum": 0,
+        "board_reference": 5.169594124257671e-17,
+        "board_reference_error": 4.04770473381458e-17,
+        "peak_scale": 966.8635108454487
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "offset_deg": -0.4,
+        "J": 0,
+        "pixel_sum": 0,
+        "board_reference": 0.0,
+        "board_reference_error": 0.0,
+        "peak_scale": 1091.6254229143312
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "offset_deg": -0.06708619168063326,
+        "J": 109.16254229000086,
+        "pixel_sum": 109.16254228999952,
+        "board_reference": 109.1625422846324,
+        "board_reference_error": 2.7550473896763176e-12,
+        "peak_scale": 1091.6254229143312
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "offset_deg": -0.05,
+        "J": 545.8629768133279,
+        "pixel_sum": 545.8629768132403,
+        "board_reference": 545.8629768113368,
+        "board_reference_error": 1.3776505553344075e-11,
+        "peak_scale": 1091.6254229143312
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "offset_deg": 0,
+        "J": 1091.6254229143312,
+        "pixel_sum": 1091.625422914489,
+        "board_reference": 1091.6254229141755,
+        "board_reference_error": 2.755047392388749e-11,
+        "peak_scale": 1091.6254229143312
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "offset_deg": 0.05,
+        "J": 545.7624343860696,
+        "pixel_sum": 545.7624339074637,
+        "board_reference": 545.762434388071,
+        "board_reference_error": 1.3773968060764808e-11,
+        "peak_scale": 1091.6254229143312
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "offset_deg": 0.06707790068534242,
+        "J": 109.16254229222787,
+        "pixel_sum": 109.16254196615601,
+        "board_reference": 109.1625422895548,
+        "board_reference_error": 2.755047389800285e-12,
+        "peak_scale": 1091.6254229143312
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "offset_deg": 0.4,
+        "J": 0,
+        "pixel_sum": 0,
+        "board_reference": 0.0,
+        "board_reference_error": 0.0,
+        "peak_scale": 1091.6254229143312
+      }
+    ],
+    "A2": [
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          40,
+          32
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 3989.4228039189834,
+        "board_reference": 3989.422804014329,
+        "board_reference_error": 1.0556898733461473e-07,
+        "retained": 1.0000000000000009,
+        "reference_lost": -3.637978807091713e-12,
+        "actual_lost": 9.534187483950518e-08,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 3.240133096385556e-10,
+            "reference": 3.2603420479417686e-10,
+            "oracle_error": 9.083681811489327e-13,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 6.083467057932363e-06,
+            "reference": 6.083474777916947e-06,
+            "oracle_error": 1.3529961206159354e-13,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 3.2383612608163765e-10,
+            "reference": 3.258569092671728e-10,
+            "oracle_error": 9.075297393360176e-13,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 0.21375952149102806,
+            "reference": 0.21375952150373698,
+            "oracle_error": 1.5614566860050323e-08,
+            "refinement_delta": 2.7755575615628914e-17
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 3988.9953402300503,
+            "reference": 3988.995340325359,
+            "oracle_error": 2.932856616935783e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 0.2136919992104053,
+            "reference": 0.2136919992231121,
+            "oracle_error": 1.5623393244494816e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 3.2418682255492345e-10,
+            "reference": 3.262078423423009e-10,
+            "oracle_error": 9.088288325733851e-13,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 6.083468858152901e-06,
+            "reference": 6.083476578253051e-06,
+            "oracle_error": 1.353169943220469e-13,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 3.2366306270776005e-10,
+            "reference": 3.256837213046999e-10,
+            "oracle_error": 9.07070682856133e-13,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          40.25,
+          32.25
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 3989.4228040550506,
+        "board_reference": 3989.4228040143507,
+        "board_reference_error": 1.0556947636031264e-07,
+        "retained": 1.0000000000000064,
+        "reference_lost": -2.546585164964199e-11,
+        "actual_lost": -4.072535375598818e-08,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 1.1518167289971849e-15,
+            "oracle_error": 3.305035404308431e-16,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 3.1162954394710715e-17,
+            "oracle_error": 3.2028900354678893e-22,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 1.2395808553391647e-05,
+            "reference": 1.2395817799607358e-05,
+            "oracle_error": 1.0215204969271724e-08,
+            "refinement_delta": 3.6373288820994165e-17
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 3878.3012946854046,
+            "reference": 3878.301294644685,
+            "oracle_error": 2.802894567925887e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 105.07281968056208,
+            "reference": 105.07281968057683,
+            "oracle_error": 1.8618651878490183e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 1.886056870889754e-08,
+            "reference": 1.8829491740011384e-08,
+            "oracle_error": 2.4436227317820576e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 5.889148162591758,
+            "reference": 5.889148162600326,
+            "oracle_error": 1.6925769962968995e-08,
+            "refinement_delta": 8.881784197001252e-16
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 0.1595291118227242,
+            "reference": 0.15952911183039972,
+            "oracle_error": 1.7296963659924485e-08,
+            "refinement_delta": 1.8041124150158794e-15
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          40.5,
+          32
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 3989.4228040142634,
+        "board_reference": 3989.4228040143294,
+        "board_reference_error": 1.0556898226228329e-07,
+        "retained": 1.000000000000001,
+        "reference_lost": -4.092726157978177e-12,
+        "actual_lost": 6.184563972055912e-11,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0,
+            "reference": 2.010934556006445e-20,
+            "oracle_error": 1.710131198435014e-29,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 3.042124688122231e-06,
+            "reference": 3.0421307370197004e-06,
+            "oracle_error": 1.3798273292255432e-12,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 3.0419898831875764e-06,
+            "reference": 3.041995932011474e-06,
+            "oracle_error": 1.380174298685947e-12,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 1.3846473822466459e-11,
+            "reference": 1.8698791369913503e-11,
+            "oracle_error": 3.7645881937680614e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 1994.7113959225528,
+            "reference": 1994.7113959225628,
+            "oracle_error": 1.741016999446109e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 1994.7113959234518,
+            "reference": 1994.7113959234664,
+            "oracle_error": 1.7415092499468042e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 0,
+            "reference": 2.0135873362278782e-20,
+            "oracle_error": 1.717527802482597e-29,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 3.042440133471121e-06,
+            "reference": 3.0424461825366076e-06,
+            "oracle_error": 1.3788037166275285e-12,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 3.0416762386304903e-06,
+            "reference": 3.0416822872806447e-06,
+            "oracle_error": 1.3811975871097117e-12,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          40.5,
+          32.5
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 3989.4228040142757,
+        "board_reference": 3989.4228040143503,
+        "board_reference_error": 1.0556947935305703e-07,
+        "retained": 1.0000000000000062,
+        "reference_lost": -2.5011104298755527e-11,
+        "actual_lost": 4.956746124662459e-11,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 6.922697284778667e-12,
+            "reference": 9.348770343377178e-12,
+            "oracle_error": 3.853407493359471e-14,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 997.348944488442,
+            "reference": 997.3489444884467,
+            "oracle_error": 1.7364619148021196e-08,
+            "refinement_delta": 2.2737367544323206e-13
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 997.3624575186819,
+            "reference": 997.3624575186816,
+            "oracle_error": 1.7369726025619955e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 6.923776537690784e-12,
+            "reference": 9.350020810393126e-12,
+            "oracle_error": 3.8538724120103267e-14,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 997.3624575186817,
+            "reference": 997.3624575186849,
+            "oracle_error": 1.737251964193899e-08,
+            "refinement_delta": 1.1368683772161603e-13
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 997.3489444884428,
+            "reference": 997.3489444884552,
+            "oracle_error": 1.7361820398722525e-08,
+            "refinement_delta": 1.1368683772161603e-13
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          40.75,
+          32.25
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 3989.4228040550465,
+        "board_reference": 3989.422804014351,
+        "board_reference_error": 1.0556928497342025e-07,
+        "retained": 1.0000000000000064,
+        "reference_lost": -2.5920599000528455e-11,
+        "actual_lost": -4.07212610298302e-08,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 3.1180180080679153e-17,
+            "oracle_error": 3.206907128985e-22,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 1.1517995033023942e-15,
+            "oracle_error": 3.3029338201853134e-16,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 6.314513065021989e-19,
+            "oracle_error": 1.8987300326550347e-26,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 105.07746051344445,
+            "reference": 105.07746051345738,
+            "oracle_error": 1.8608913779206526e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 3878.2966538653204,
+            "reference": 3878.296653824604,
+            "oracle_error": 2.627797098994945e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 0.15958007020344087,
+            "reference": 0.15958007021112156,
+            "oracle_error": 1.7239700994924276e-08,
+            "refinement_delta": 5.245803791353865e-15
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 5.88909720424378,
+            "reference": 5.8890972042520975,
+            "oracle_error": 1.694582906866266e-08,
+            "refinement_delta": 3.552713678800501e-15
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          40.2,
+          32.35
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 3989.422804014719,
+        "board_reference": 3989.4228040143103,
+        "board_reference_error": 1.0556842622135039e-07,
+        "retained": 0.9999999999999962,
+        "reference_lost": 1.5006662579253316e-11,
+        "actual_lost": -3.9381120586767793e-10,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 0.00011233786254278893,
+            "reference": 0.0001123378710549769,
+            "oracle_error": 9.675722888970396e-09,
+            "refinement_delta": 1.9759584593548318e-16
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 3800.6285016531524,
+            "reference": 3800.6285016527677,
+            "oracle_error": 2.7265774681496744e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 38.60239860647682,
+            "reference": 38.60239860648874,
+            "oracle_error": 1.8765089819382068e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 4.395530814130296e-06,
+            "reference": 4.395535783965788e-06,
+            "oracle_error": 4.436836184322282e-11,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 148.68178878595688,
+            "reference": 148.68178878592437,
+            "oracle_error": 1.2550358577260903e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 1.509998235739596,
+            "reference": 1.509998235748177,
+            "oracle_error": 4.285325192681748e-09,
+            "refinement_delta": 4.440892098500626e-16
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          80.2,
+          32.35
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 3949.310407172501,
+        "board_reference": 3949.310407172082,
+        "board_reference_error": 7.515964897699057e-08,
+        "retained": 0.9899453131912013,
+        "reference_lost": 40.11239684224347,
+        "actual_lost": 40.11239684182419,
+        "pixels": [
+          {
+            "u": 79,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 32,
+            "raw": 0.00011233786254279631,
+            "reference": 0.00011233787105496938,
+            "oracle_error": 9.675722913315357e-09,
+            "refinement_delta": 1.9755518835401498e-16
+          },
+          {
+            "u": 80,
+            "v": 32,
+            "raw": 3800.6285016531515,
+            "reference": 3800.628501652757,
+            "oracle_error": 2.7265892664593994e-08,
+            "refinement_delta": 9.094947017729282e-13
+          },
+          {
+            "u": 79,
+            "v": 33,
+            "raw": 4.395530814130607e-06,
+            "reference": 4.395535783965585e-06,
+            "oracle_error": 4.436836299364772e-11,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 33,
+            "raw": 148.6817887859566,
+            "reference": 148.68178878592408,
+            "oracle_error": 1.255033028724974e-08,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          80.5,
+          32.35
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 1994.7114020065287,
+        "board_reference": 1994.7114020071099,
+        "board_reference_error": 1.3124579139762685e-07,
+        "retained": 0.4999999999999868,
+        "reference_lost": 1994.7114020072154,
+        "actual_lost": 1994.7114020077966,
+        "pixels": [
+          {
+            "u": 79,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 32,
+            "raw": 1.3793161384183511e-11,
+            "reference": 1.7994644835296172e-11,
+            "oracle_error": 9.054880504106387e-14,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 32,
+            "raw": 1919.6135218101724,
+            "reference": 1919.6135218107436,
+            "oracle_error": 2.668191716302424e-08,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 33,
+            "raw": 5.331927305415882e-14,
+            "reference": 7.041463188091104e-13,
+            "oracle_error": 1.6218431652644869e-15,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 33,
+            "raw": 75.09788019634244,
+            "reference": 75.09788019635091,
+            "oracle_error": 1.408116970239777e-08,
+            "refinement_delta": 1.4210854715202004e-14
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          80.65,
+          32.35
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 489.0605102010532,
+        "board_reference": 489.0605102040898,
+        "board_reference_error": 9.619093890262765e-08,
+        "retained": 0.12258929028830348,
+        "reference_lost": 3500.3622938102353,
+        "actual_lost": 3500.362293813272,
+        "pixels": [
+          {
+            "u": 79,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 9.834013513644222e-16,
+            "oracle_error": 2.6250240771013476e-20,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 32,
+            "raw": 470.6475948734521,
+            "reference": 470.64759487647945,
+            "oracle_error": 2.5801777850880747e-08,
+            "refinement_delta": 5.684341886080802e-14
+          },
+          {
+            "u": 79,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 3.8447782021050534e-17,
+            "oracle_error": 5.322051269960835e-22,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 33,
+            "raw": 18.41291532760111,
+            "reference": 18.412915327611355,
+            "oracle_error": 1.6866309627888874e-08,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "gaussian_3d",
+        "target": [
+          81.5,
+          32.35
+        ],
+        "J": 3989.4228040143253,
+        "pixel_sum": 1.384648065723767e-11,
+        "board_reference": 1.869879116220145e-11,
+        "board_reference_error": 9.164298681015742e-12,
+        "retained": 4.687091862859444e-15,
+        "reference_lost": 3989.4228040143066,
+        "actual_lost": 3989.4228040143116,
+        "pixels": [
+          {
+            "u": 80,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 32,
+            "raw": 1.3793161384183511e-11,
+            "reference": 1.7994644835298673e-11,
+            "oracle_error": 9.054880505651454e-14,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 33,
+            "raw": 5.331927305415882e-14,
+            "reference": 7.041463188092083e-13,
+            "oracle_error": 1.6218431663678219e-15,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          40,
+          32
+        ],
+        "J": 1875,
+        "pixel_sum": 1874.9999926750659,
+        "board_reference": 1875.0000000000055,
+        "board_reference_error": 4.732130407003471e-11,
+        "retained": 1.0000000000000029,
+        "reference_lost": -5.4569682106375694e-12,
+        "actual_lost": 7.3249341312475735e-06,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 6.278788308344225,
+            "reference": 6.278788308343021,
+            "oracle_error": 1.7393739569738324e-13,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 1862.448138646755,
+            "reference": 1862.4481459716892,
+            "oracle_error": 1.4087818109801815e-09,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 6.273065719966475,
+            "reference": 6.273065719967323,
+            "oracle_error": 1.7377900419002778e-13,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          40.25,
+          32.25
+        ],
+        "J": 1875,
+        "pixel_sum": 1874.9999999992065,
+        "board_reference": 1875.0000000000068,
+        "board_reference_error": 4.732130407003472e-11,
+        "retained": 1.0000000000000036,
+        "reference_lost": -6.821210263296962e-12,
+        "actual_lost": 7.935341272968799e-10,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 1357.7816717690635,
+            "reference": 1357.781671769852,
+            "oracle_error": 1.6822615727215071e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 374.8708362055116,
+            "reference": 374.8708362055092,
+            "oracle_error": 9.684882486116542e-12,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 134.26595796468223,
+            "reference": 134.26595796468757,
+            "oracle_error": 3.626625956251393e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 8.08153405994936,
+            "reference": 8.081534059950098,
+            "oracle_error": 2.7450087057992707e-12,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          40.5,
+          32
+        ],
+        "J": 1875,
+        "pixel_sum": 1875,
+        "board_reference": 1875.0000000000055,
+        "board_reference_error": 4.732130407003471e-11,
+        "retained": 1.0000000000000029,
+        "reference_lost": -5.4569682106375694e-12,
+        "actual_lost": 0,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 937.5,
+            "reference": 937.4999999999953,
+            "oracle_error": 2.150786724062759e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 937.5,
+            "reference": 937.5000000000045,
+            "oracle_error": 2.1508266800375942e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          40.5,
+          32.5
+        ],
+        "J": 1875,
+        "pixel_sum": 1875,
+        "board_reference": 1875.0000000000093,
+        "board_reference_error": 4.732130407003489e-11,
+        "retained": 1.0000000000000049,
+        "reference_lost": -9.322320693172514e-12,
+        "actual_lost": 0,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 468.7468244865306,
+            "reference": 468.74682448652624,
+            "oracle_error": 1.0757089386990807e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 468.7531755134694,
+            "reference": 468.7531755134705,
+            "oracle_error": 1.0752157270792891e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 468.7531755134694,
+            "reference": 468.75317551346666,
+            "oracle_error": 1.0753729904216566e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 468.7468244865307,
+            "reference": 468.74682448653425,
+            "oracle_error": 1.0754931153798499e-10,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          40.75,
+          32.25
+        ],
+        "J": 1875,
+        "pixel_sum": 1874.9999999992065,
+        "board_reference": 1875.0000000000068,
+        "board_reference_error": 4.732130407003472e-11,
+        "retained": 1.0000000000000036,
+        "reference_lost": -6.821210263296962e-12,
+        "actual_lost": 7.935341272968799e-10,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 374.8731203589757,
+            "reference": 374.8731203589673,
+            "oracle_error": 9.684966497103296e-12,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 1357.7793876155997,
+            "reference": 1357.7793876163926,
+            "oracle_error": 1.739096531304681e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 8.084272986435801,
+            "reference": 8.084272986435646,
+            "oracle_error": 2.755491047011948e-12,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 134.26321903819542,
+            "reference": 134.26321903820232,
+            "oracle_error": 3.764243768629167e-10,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          40.2,
+          32.35
+        ],
+        "J": 1875,
+        "pixel_sum": 1874.9999999978388,
+        "board_reference": 1875.0000000000093,
+        "board_reference_error": 4.732130407003489e-11,
+        "retained": 1.0000000000000049,
+        "reference_lost": -9.322320693172514e-12,
+        "actual_lost": 2.1611867850879207e-09,
+        "pixels": [
+          {
+            "u": 39,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 32,
+            "raw": 1205.4798502924898,
+            "reference": 1205.4798502946437,
+            "oracle_error": 2.562429559993133e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 32,
+            "raw": 244.7497729437394,
+            "reference": 244.749772941943,
+            "oracle_error": 1.1684344050032458e-09,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 39,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 40,
+            "v": 33,
+            "raw": 384.3309319429362,
+            "reference": 384.33093194473554,
+            "oracle_error": 3.6722967079323194e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 41,
+            "v": 33,
+            "raw": 40.43944481867336,
+            "reference": 40.43944481867467,
+            "oracle_error": 2.203478792750538e-09,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          80.2,
+          32.35
+        ],
+        "J": 1875,
+        "pixel_sum": 1589.8107822354227,
+        "board_reference": 1589.8107822393627,
+        "board_reference_error": 3.860178996375201e-11,
+        "retained": 0.8478990838609934,
+        "reference_lost": 285.18921776063735,
+        "actual_lost": 285.1892177645773,
+        "pixels": [
+          {
+            "u": 79,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 32,
+            "raw": 1205.4798502924875,
+            "reference": 1205.479850294633,
+            "oracle_error": 2.5620518731519116e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 33,
+            "raw": 384.33093194293525,
+            "reference": 384.33093194473287,
+            "oracle_error": 3.6724609794692303e-10,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          80.5,
+          32.35
+        ],
+        "J": 1875,
+        "pixel_sum": 937.4999999999836,
+        "board_reference": 937.4999999999758,
+        "board_reference_error": 2.1505116449157353e-10,
+        "retained": 0.49999999999998707,
+        "reference_lost": 937.5000000000242,
+        "actual_lost": 937.5000000000164,
+        "pixels": [
+          {
+            "u": 79,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 32,
+            "raw": 725.1111722966868,
+            "reference": 725.1111721517267,
+            "oracle_error": 2.4766101925295013e-10,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 33,
+            "raw": 212.38882770329678,
+            "reference": 212.38882784825034,
+            "oracle_error": 3.903498081390127e-10,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          80.65,
+          32.35
+        ],
+        "J": 1875,
+        "pixel_sum": 595.6420329810423,
+        "board_reference": 595.6420329811941,
+        "board_reference_error": 2.290284468965377e-11,
+        "retained": 0.3176757509233035,
+        "reference_lost": 1279.357967018806,
+        "actual_lost": 1279.3579670189577,
+        "pixels": [
+          {
+            "u": 79,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 32,
+            "raw": 477.077383103519,
+            "reference": 477.07738310367085,
+            "oracle_error": 1.1885276480201643e-11,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 79,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 33,
+            "raw": 118.56464987752327,
+            "reference": 118.56464987752443,
+            "oracle_error": 5.833154261139679e-12,
+            "refinement_delta": 0.0
+          }
+        ]
+      },
+      {
+        "kind": "uniform_sphere_3d",
+        "target": [
+          81.5,
+          32.35
+        ],
+        "J": 1875,
+        "pixel_sum": 0,
+        "board_reference": 0.0,
+        "board_reference_error": 0.0,
+        "retained": 0.0,
+        "reference_lost": 1875.0,
+        "actual_lost": 1875,
+        "pixels": [
+          {
+            "u": 80,
+            "v": 31,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 32,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          },
+          {
+            "u": 80,
+            "v": 33,
+            "raw": 0.0,
+            "reference": 0.0,
+            "oracle_error": 0.0,
+            "refinement_delta": 0.0
+          }
+        ]
+      }
+    ]
+  },
+  "glyph_warnings": []
+}

@@ -1,6 +1,7 @@
 import { type Cell, type DiffractionSettings, type SceneConfig, type Vec3, SceneError, clone } from '../core/types';
 import type { Scene } from '../core/scene';
 import { add, sub, scale, dot, cross, norm, unit, point, direction, inverseRigid, lattice, inverseTranspose, mat3Vector } from '../core/math';
+import { integrateReflection, type ReflectionImage, type IntegrationOptions, type Density } from './forward';
 
 export const HC_KEV_A = 12.3984198433;
 export const isCubic = (c: Cell) => Math.max(Math.abs(c.a-c.b),Math.abs(c.a-c.c)) < 1e-8 && [c.alpha_deg,c.beta_deg,c.gamma_deg].every(a=>Math.abs(a-90)<1e-8);
@@ -18,6 +19,10 @@ export function validateDiffraction(c: SceneConfig) {
   if(!s||!d)fail('衍射预览需要有效的样品和探测器 ID。');
   if(p.reflection_model==='fcc'&&!isCubic(s!.crystal!.cell))fail('FCC 预览需要立方晶胞；请先改用简单点阵，或设置立方晶格。');
   if(p.sample_shape.kind==='cylinder'&&Math.abs(p.sample_shape.size_mm[0]-p.sample_shape.size_mm[1])>1e-8)fail('圆柱照明模型的 X/Y 直径必须相等。');
+  const seen=new Set<string>();
+  for(const item of p.intensity_model?.weights??[]){
+    const key=item.hkl.join(',');if(seen.has(key)||item.hkl.every(v=>v===0))fail('相对强度的 HKL 不能重复或为零。');seen.add(key);
+  }
 }
 export interface Reflection { hkl: Vec3; g_lab: Vec3; d_A: number; error_invA: number; weight: number; direction_lab: Vec3; two_theta_deg: number; section_radius_invA: number }
 // ReciPro's solid-sphere / excitation-only tangent-section approximation.
@@ -87,10 +92,10 @@ export function illumination(scene: Scene, p: DiffractionSettings, resolution=32
   return {status:'lit',volume_mm3:length*p.beam_size_mm[0]*p.beam_size_mm[1]/resolution**2,centroid_lab_mm:scale(moment,1/length),resolution};
 }
 export interface Spot extends Reflection { u:number;v:number;radius_mm:number }
-export interface Preview { revision:number;illumination:Illumination;spots:Spot[];excited_count:number;panel:Panel;source_normal_distance_mm?:number;direct?:{u:number;v:number;on_panel:boolean};duration_ms:number }
+export interface Preview { revision:number;illumination:Illumination;spots:Spot[];excited_count:number;panel:Panel;source_normal_distance_mm?:number;direct?:{u:number;v:number;on_panel:boolean};duration_ms:number;images?:ReflectionImage[];integration_status?:'resolved'|'unresolved' }
 export class DiffractionModel {
   #candidateKey='';#candidates:ReturnType<typeof enumerateReflections>=[];#lightKey='';#light?:Illumination;
-  compute(scene:Scene,p:DiffractionSettings):Preview {
+  compute(scene:Scene,p:DiffractionSettings,options:IntegrationOptions&{hkls?:Vec3[]}={}):Preview {
     const started=performance.now(),c=scene.save_state(),sample=c.devices.devices.find(d=>d.id===p.sample_id)!;
     const key=JSON.stringify([sample.crystal!.cell,p.hkl_limit,p.reflection_model]);
     if(key!==this.#candidateKey){this.#candidates=enumerateReflections(sample.crystal!.cell,p.hkl_limit,p.reflection_model);this.#candidateKey=key;}
@@ -106,14 +111,32 @@ export class DiffractionModel {
     }
     const light=this.#light!,panel=detectorPanel(scene,p.detector_id),spots:Spot[]=[],source=light.centroid_lab_mm;
     const source_normal_distance_mm=source?Math.abs(dot(panel.normal,sub(panel.center,source))):undefined;
+    const images:ReflectionImage[]|undefined=p.intensity_model?[]:undefined;
+    let remainingPixels=options.maxPixels??200000,remainingEvaluations=options.maxEvaluations??2000000;
     let excited_count=0;const lambda=HC_KEV_A/p.energy_keV,m=scene.get_frame_transform('LAB',sample.crystal!.frame).matrix;
     if(source)for(const candidate of this.#candidates){
+      if(options.hkls&&!options.hkls.some(h=>h.every((v,i)=>v===candidate.hkl[i])))continue;
+      if(p.intensity_model){
+        const im=p.intensity_model,g_lab=direction(m,candidate.g),W=im.weights?.find(w=>w.hkl.every((v,i)=>v===candidate.hkl[i]))?.total_relative_intensity??1;
+        const density:Density=im.kind==='gaussian_3d'?{kind:im.kind,sigma_g_invA:im.sigma_g_invA!}:{kind:im.kind,radius_g_invA:p.spot_diameter_invA/2};
+        const image=integrateReflection(panel,source,g_lab,1/lambda,density,W,candidate.hkl,{...options,maxPixels:Math.max(1,remainingPixels),maxEvaluations:Math.max(1,remainingEvaluations)});
+        if((remainingPixels<1||remainingEvaluations<1)&&(image.tile.data.length>remainingPixels||image.evaluations>remainingEvaluations)){image.status='unresolved';image.reason='Frame integration budget reached before this HKL could be completed';}
+        images!.push(image);
+        remainingPixels-=image.tile.width*image.tile.height;remainingEvaluations-=image.evaluations;
+        if(image.status==='unresolved')break;
+        if(image.sphere_integral>image.tail_bound)excited_count++;
+        if(image.pixel_sum===0&&image.status==='resolved')continue;
+        const error=norm(add(g_lab,[0,0,1/lambda]))-1/lambda,ray=norm(add(g_lab,[0,0,1/lambda]))>0?unit(add(g_lab,[0,0,1/lambda])):[0,0,1] as Vec3;
+        const hit=projectRay(panel,source,ray);if(!hit)continue;
+        spots.push({hkl:candidate.hkl,g_lab,d_A:candidate.d_A,error_invA:error,weight:image.error_scale>0?image.sphere_integral/image.error_scale:0,direction_lab:ray,two_theta_deg:Math.acos(Math.max(-1,Math.min(1,ray[2])))*180/Math.PI,section_radius_invA:density.kind==='gaussian_3d'?8*density.sigma_g_invA:density.radius_g_invA,u:hit.u,v:hit.v,radius_mm:source_normal_distance_mm!*lambda*(density.kind==='gaussian_3d'?8*density.sigma_g_invA:density.radius_g_invA)});
+        continue;
+      }
       const g_lab=direction(m,candidate.g),e=excite(g_lab,lambda,p.spot_diameter_invA);if(e.weight<=0)continue;excited_count++;
       const hit=projectRay(panel,source,e.direction_lab);if(!hit?.on_panel)continue;
       spots.push({hkl:candidate.hkl,g_lab,d_A:candidate.d_A,...e,two_theta_deg:Math.acos(Math.max(-1,Math.min(1,e.direction_lab[2])))*180/Math.PI,u:hit.u,v:hit.v,radius_mm:source_normal_distance_mm!*lambda*e.section_radius_invA});
     }
     spots.sort((a,b)=>b.weight-a.weight||a.hkl.join(',').localeCompare(b.hkl.join(',')));
     const direct=projectRay(panel,c.assembly.beam.point_mm,c.assembly.beam.direction);
-    return {revision:scene.revision,illumination:light,spots,excited_count,panel,source_normal_distance_mm,direct,duration_ms:performance.now()-started};
+    return {revision:scene.revision,illumination:light,spots,excited_count,panel,source_normal_distance_mm,direct,duration_ms:performance.now()-started,...(images?{images,integration_status:light.status==='unresolved'||images.some(i=>i.status==='unresolved')?'unresolved' as const:'resolved' as const}:{})};
   }
 }

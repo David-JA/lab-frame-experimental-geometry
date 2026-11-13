@@ -1,5 +1,44 @@
 import { test, expect, type Page } from '@playwright/test';
 
+test('Issue 3 A: 3D integrated modes preserve fixed scale, raw totals, configuration and narrow layout',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
+  await page.locator('#dp-reference').evaluate(el=>(el as HTMLDetailsElement).open=true);await page.locator('#dp-demo').click();
+  await page.locator('#dp-reference').evaluate(el=>(el as HTMLDetailsElement).open=false);
+  const panel=page.locator('#diffraction-panel'),result=()=>panel.evaluate(el=>JSON.parse((el as HTMLElement).dataset.result!));
+  const snapshot=()=>page.locator('#readout').evaluate(el=>JSON.parse((el as HTMLElement).dataset.state!).snapshot);
+  await page.locator('#dp-intensity').selectOption('gaussian_3d');
+  await expect(panel).toHaveAttribute('data-integration','resolved');await expect(page.locator('.diffraction-intensity')).toHaveCount(1);
+  expect((await result()).raw_sum).toBeGreaterThan(0);expect((await result()).preview_sum).toBeCloseTo((await result()).raw_sum,7);
+  await expect(page.locator('#dp-diameter')).toBeDisabled();
+  await page.locator('#dp-gray-max').fill('25');await page.locator('#dp-gray-max').press('Tab');
+  const before=await result();await page.locator('#dp-display-threshold').fill('100000');await page.locator('#dp-display-threshold').press('Tab');
+  expect((await result()).raw_sum).toBe(before.raw_sum);
+  await page.locator('#dp-display-threshold').fill('0');await page.locator('#dp-display-threshold').press('Tab');
+  const valid=await snapshot();await page.locator('#dp-sigma').fill('0');await page.locator('#dp-sigma').press('Tab');expect(await snapshot()).toEqual(valid);
+  await page.locator('#dp-sigma').fill('0.0004');await page.locator('#dp-sigma').press('Tab');
+  const centred=await snapshot(),centredSum=(await result()).raw_sum,moved=structuredClone(centred);moved.experiment_state.joints['rotary.phi']+=.05;
+  const apply=async(c:unknown)=>{await page.locator('#open-config').click();await page.locator('#json-settings').evaluate(el=>(el as HTMLDetailsElement).open=true);await page.locator('#config').fill(JSON.stringify(c));await page.locator('#restore').click();await page.locator('#close-drawer').click();};
+  await apply(moved);expect((await result()).raw_sum).toBeLessThan(centredSum);expect((await result()).gray_max).toBe(25);await apply(centred);
+  await page.locator('#dp-spots').selectOption('2,0,0');await expect(page.locator('#dp-detail')).toContainText('原始像素和');
+  await panel.evaluate(el=>el.scrollTop=0);await page.screenshot({path:'artifacts/issue3-forward/ui-desktop.png'});
+  await page.locator('#dp-intensity').selectOption('legacy');expect((await snapshot()).diffraction.intensity_model).toBeUndefined();
+  await page.locator('#dp-intensity').selectOption('gaussian_3d');await expect(page.locator('#dp-sigma')).toHaveValue('0.0004');
+  // Use a narrow sphere rather than the legacy .1 A^-1 demonstration diameter.
+  await page.locator('#dp-intensity').selectOption('legacy');await page.locator('#dp-diameter').fill('0.0008');await page.locator('#dp-diameter').press('Tab');
+  await page.locator('#dp-intensity').selectOption('uniform_sphere_3d');await expect(panel).toHaveAttribute('data-integration','resolved');
+  await expect(page.locator('#dp-sigma')).toBeDisabled();expect((await result()).raw_sum).toBeGreaterThan(0);
+  await page.locator('#dp-intensity').selectOption('gaussian_3d');await page.locator('#dp-reset').click();await expect(page.locator('#dp-intensity')).toHaveValue('gaussian_3d');await expect(page.locator('#dp-sigma')).toHaveValue('0.001');
+  await page.locator('#dp-gray-max').fill('25');await page.locator('#dp-gray-max').press('Tab');
+  await page.setViewportSize({width:390,height:844});await panel.evaluate(el=>el.scrollTop=0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'artifacts/issue3-forward/ui-mobile.png',fullPage:true});
+  await expect(page.locator('#dp-gray-max')).toHaveValue('25');expect(errors).toEqual([]);
+  await page.locator('#dp-sigma').fill('1e-110');await page.locator('#dp-sigma').press('Tab');
+  expect(await panel.getAttribute('data-integration')).toBeNull();expect(await panel.getAttribute('data-raw-sum')).toBeNull();expect(await panel.getAttribute('data-preview-sum')).toBeNull();
+  await page.locator('#dp-sigma').fill('0.001');await page.locator('#dp-sigma').press('Tab');await expect(panel).toHaveAttribute('data-integration','resolved');
+  console.log('3D image compute ms:',await panel.getAttribute('data-compute-ms'));
+});
+
 async function positionSupport(page:Page,axis:'X'|'Z',value:number){
   await page.locator('#expand-devices').click();await page.locator('.device-tree-row[data-device="detector_support"]').click();
   await page.locator('#placement-detector_support').evaluate(el=>(el as HTMLDetailsElement).open=true);

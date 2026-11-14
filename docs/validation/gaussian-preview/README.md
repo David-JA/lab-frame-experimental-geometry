@@ -1,6 +1,6 @@
-# 全局网格、局部原始像素窗口与高斯加速：本地实现记录
+# 全局网格、局部原始像素窗口与高斯加速：实现与发布记录
 
-本记录对应[PR #5 Spec](../../../discuss/20261113_gaussian_preview_optimization_spec.md)的实现，用户本地检查已通过，实现随本记录提交至PR #5供审查，尚未合并或发布。已承接此前的自动分组、预算诊断、斑宽控制与一次亮度适配；不是仅把536²粗图放大。科学输出仍为理想相对强度，B真实材料强弱与绝对计数继续暂缓。
+本记录对应[PR #5 Spec](../../../discuss/20261113_gaussian_preview_optimization_spec.md)的实现，用户本地检查、PR审查和Astra high正文复审已通过；PR #5已于2026-11-14合并并发布。已承接此前的自动分组、预算诊断、斑宽控制与一次亮度适配；不是仅把536²粗图放大。科学输出仍为理想相对强度，B真实材料强弱与绝对计数继续暂缓。
 
 ## 使用与结果边界
 
@@ -86,3 +86,9 @@ Remove-Item Env:FORWARD_GAUSSIAN_QUADRATURE,Env:FORWARD_AUDIT_OUTPUT
 局部/网格验证入口为 `tests/local-diffraction.test.ts`、`tests/browser/local-diffraction.spec.ts`；候选数值反例在 `tests/gaussian-plane.test.ts`。新生产实现与独立Python参考不共享求积代码、节点或tile数据；既有归档验收文件没有覆盖。
 
 Astra high：S1/S7实现第3轮PASS，Gaussian候选第2轮PASS并认可UI启用门；最终UI接线与文档收尾PASS，可交用户本地试用。前者修复了完成数/误差记录、全局标尺来源、legacy关闭及重叠验收；后者修复了Jacobian尖峰、算法身份、总量门与单反射计时。收尾评审复用完整回归，并独立核对参考差值与文档一致。全部仅为本地工程和模型数值结论，未授权合并或发布。
+
+## 正式发布（2026-11-14）
+
+用户另行授权合并、发布和清理后，PR #5以merge方式合入main，合并提交为 `a2922f6d3e7c684bc8e5ff9b7aef8a6ad2b41550`。[Pages工作流43556419024](https://github.com/David-JA/lab-frame-experimental-geometry/actions/runs/43556419024)的build与deploy均成功，包含干净安装、完整单元测试及production build。
+
+在[正式网页](https://david-ja.github.io/lab-frame-experimental-geometry/)直接操作核对：加载 `index-PNN7tS6h.js`，全局536²；合成对中场景Gaussian σ=.03、(200)局部256²，完成65536个raw单元、851968次求值，积分和约13.06256；蓝框存在、无选中粉圈或十字，console error为0。这是线上部署与功能核对，未增加科学验收范围。

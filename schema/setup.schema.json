@@ -30,6 +30,7 @@
             "sigma_g_invA": {"type": "number", "exclusiveMinimum": 0},
             "gray_max": {"type": "number", "exclusiveMinimum": 0},
             "display_threshold": {"type": "number", "minimum": 0},
+            "preview_sampling": {"enum": ["adaptive", "raw"]},
             "weights": {"type": "array", "items": {
               "type": "object", "additionalProperties": false, "required": ["hkl", "total_relative_intensity"],
               "properties": {

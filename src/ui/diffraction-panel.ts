@@ -7,14 +7,32 @@ import { detectorSupport, withDetectorSupport } from '../core/detector-support';
 import { diffraction_demo_config } from '../example';
 import { PreviewRefresh } from './preview-refresh';
 import { math, typesetMath } from './math-typesetting';
-import { downsample } from '../diffraction/forward';
+import { downsample,previewGrid,type PixelTile } from '../diffraction/forward';
+import { LocalDiffraction } from './local-diffraction';
+import { displayGray,labelVisible,HKL_LABEL_MIN_GRAY } from './diffraction-visibility';
 
 const NS='http://www.w3.org/2000/svg';
 const numberText=(v:number,digits=4)=>Number(v.toFixed(digits)).toString();
 const hklText=(s:Spot)=>'('+s.hkl.join(' ')+')';
+export function formatIntegrationFailure(reason?:string):string {
+  const roi=reason?.match(/ROI needs (\d+) integration cells \((\d+) raw pixels\); remaining frame budget (\d+)/);
+  if(roi)return `当前斑覆盖 ${roi[2]} 个原始像素，需 ${roi[1]} 个积分单元；整帧剩余预算 ${roi[3]} 个单元。`;
+  const evaluations=reason?.match(/evaluation budget exhausted \((\d+)\/(\d+)\)/);
+  if(evaluations)return `整帧共享的求积预算已用尽（本反射已用 ${evaluations[1]}/${evaluations[2]} 次评估）。`;
+  if(reason?.includes('Tail budget'))return '高斯计算尾部的截断量超过误差预算，当前尾部尚未解析。';
+  if(reason?.includes('Frame integration budget'))return '整帧共享预算已用尽，该反射尚未完成。';
+  if(reason?.includes('depth'))return '局部求积加密达到深度上限，尚未收敛。';
+  if(reason?.includes('tolerance'))return '当前设置尚未达到积分误差要求。';
+  if(reason?.includes('angular numerical'))return '斑宽过小，低于当前数值角分辨率。';
+  if(reason?.includes('contains the source'))return '探测器平面穿过发射点，请调整探测器位置。';
+  if(reason?.includes('Nonfinite'))return '数值积分产生非有限量，当前结果未通过数值检查。';
+  return reason??'积分尚未完成。';
+}
 export class DiffractionPanel {
   #model=new DiffractionModel();#open=false;#formKey='';#selected='';#result?:Preview;#refresh:PreviewRefresh;
   #lastIntensity?:IntensityModel;
+  #local:LocalDiffraction;#moving=false;
+  #grayTagValue?:number;#grayOrigin='既有配置/初值';
   constructor(private host:HTMLElement,private entry:HTMLButtonElement,private getScene:()=>Scene,private apply:(next:SceneConfig)=>boolean){
     this.#refresh=new PreviewRefresh(()=>this.getScene().revision,()=>this.refresh());
     host.className='diffraction-panel';host.hidden=true;host.setAttribute('aria-label','衍射预览');
@@ -22,8 +40,11 @@ export class DiffractionPanel {
 <p id="dp-status" class="diffraction-status" role="status"></p><p class="small">运动中每秒更新一次，暂停后更新最终姿态。</p><p id="dp-light-info" class="small"></p>
 <svg id="dp-plot" viewBox="0 0 500 500" role="img" aria-label="预测衍射图，raw 左上像素坐标"></svg>
 <p class="small diffraction-key"><span class="spot-key">●</span> 预测反射：越亮表示几何响应越强 <span class="direct-key">⊕</span> 直射束位置 · raw 左上原点</p>
+<p class="small">自动HKL标签仅显示当前灰度峰值至少 ${HKL_LABEL_MIN_GRAY}/255 的反射；手动选中可保留定位标签，反射列表不筛选。</p>
+<section id="dp-local" aria-label="局部原始像素窗口"></section>
 <label class="parameter">斑形与信号模型<select id="dp-intensity"><option value="legacy">圆斑示意（旧）</option><option value="gaussian_3d">三维高斯（像素积分）</option><option value="uniform_sphere_3d">三维均匀球（像素积分）</option></select></label>
 <div id="dp-intensity-fields" class="diffraction-fields" hidden><label>高斯 σ_g / Å⁻¹<input id="dp-sigma" type="number" min="0" step="0.0001"></label><label>固定灰度上限 / 相对单位<input id="dp-gray-max" type="number" min="0" step="any"></label><label>显示阈值 / 相对单位<input id="dp-display-threshold" type="number" min="0" step="any"></label></div><p id="dp-intensity-note" class="small"></p>
+<div id="dp-sampling-controls" hidden><label class="parameter">预览采样<select id="dp-sampling"><option value="adaptive">自动分组（交互预览）</option><option value="raw">逐原始像素（较慢）</option></select></label><div class="diffraction-heading-actions"><button id="dp-width-down">斑宽 ×0.8</button><button id="dp-width-up">斑宽 ×1.25</button><button id="dp-width-default">推荐斑宽</button></div><button id="dp-match-width">按当前宽度切换斑形</button><button id="dp-fit-gray">按当前帧适配亮度一次</button><p id="dp-width-note" class="small"></p></div>
 <div class="diffraction-fields"><label>能量 / keV<input id="dp-energy" type="number" min="1" max="500" step="any"></label><div class="diffraction-readout"><span>受照体积重心到平板的<br>垂直距离 / mm</span><output id="dp-normal-distance" aria-label="受照体积重心到平板的垂直距离">—</output></div><label><span>晶格常数 ${math('a','a')} / ${math(String.raw`\text{\AA}`,'Å')}</span><input id="dp-cell-a" type="number" min="0" step="0.0001"></label><label><span>倒易斑点直径 / ${math(String.raw`\text{\AA}^{-1}`,'Å⁻¹')}</span><input id="dp-diameter" type="number" min="0" max="0.2" step="0.01"></label><label class="check"><input id="dp-labels" type="checkbox">显示 HKL</label></div><p id="dp-lattice-note" class="small"></p>
 <p class="small">能量和照明尺寸的增减箭头每次调整 1 个对应单位；也可直接输入小数。</p>
 <p class="small">换距或横移请调整左侧探测器支撑架的固定位置（LAB X/Z）。该读数从当前受照体积重心垂直量到平板，与衍射图使用同一发射点；没有可用重心时显示“—”。</p>
@@ -37,6 +58,7 @@ export class DiffractionPanel {
 <div class="diffraction-derived-value"><span>理论散射角 ${math(String.raw`2\theta`,'2θ')}</span><strong><output id="dp-two-theta" aria-label="理论散射角计算值">—</output> <span class="small">${math(String.raw`{}^\circ`,'°')}</span></strong></div>
 <div class="diffraction-derived-value"><span>散射矢量大小 ${math('q','q')}</span><strong><output id="dp-q" aria-label="散射矢量大小计算值">—</output> <span class="small">${math(String.raw`\text{\AA}^{-1}`,'Å⁻¹')}</span></strong></div><p id="dp-cell-note" class="small"></p><p class="small">${math(String.raw`2\theta`,'2θ')} 按当前能量计算，不代表当前姿态已发生衍射；${math(String.raw`q=\dfrac{2\pi}{d}`,'q = 2π/d')}。选择晶面只更新本卡片读数，不筛选预测反射。</p></section>
 <h3>照明模型尺寸</h3><p class="small">与放大显示的样品外形分开。圆柱轴为样品 S 的 Z 轴，中心跟随样品中心。</p>
+<p class="small">能量 1–500 keV、每轴指标上限 1–12、球斑直径 0.000001–0.2 Å⁻¹ 是此模拟器的输入范围，不是束线或电机的安全限位。晶格常数、斑宽与照明尺寸须为正数；增大斑宽或枚举范围会增加计算量。照明体积只决定是否受照与发射重心，不直接预测真实计数。</p>
 <label class="parameter">样品形状<select id="dp-shape"><option value="cylinder">圆柱</option><option value="box">长方体</option></select></label>
 <div class="diffraction-fields"><label id="dp-size-x-label">直径 / mm<input id="dp-size-x" type="number" min="0.0001" max="10000" step="any"></label><label id="dp-size-y-label">Y 尺寸 / mm<input id="dp-size-y" type="number" min="0.0001" max="10000" step="any"></label><label>Z 高度 / mm<input id="dp-size-z" type="number" min="0.0001" max="10000" step="any"></label><label>光束宽 / mm<input id="dp-beam-x" type="number" min="0.0001" max="100" step="any"></label><label>光束高 / mm<input id="dp-beam-y" type="number" min="0.0001" max="100" step="any"></label><label>每轴最大 |hkl|<input id="dp-limit" type="number" min="1" max="12" step="1"></label></div><button id="dp-apply-shape">应用照明与范围</button>
 <p id="dp-source" class="small"></p></details>
@@ -45,6 +67,7 @@ export class DiffractionPanel {
 <table class="diffraction-reference-table"><thead><tr><th>带轴 / 反射组</th><th>临界直径<br>${math(String.raw`\text{\AA}^{-1}`,'Å⁻¹')}</th><th>面板内<br>中心数</th></tr></thead><tbody id="dp-skeleton-rows"></tbody></table><p id="dp-skeleton-result" class="small"></p>
 <button id="dp-demo">载入理想对中示例（替换当前配置）</button><p class="small">示例采用合成装配与取向，可看到 (200) 反射；不是四月实测姿态。</p></details>
 <p id="dp-caveat" class="small diffraction-caveat">近似模型：均匀光束、单点发射、有限倒易球局部截面。用途是检查几何变化，不替代标定或实测信号。</p>`;
+    this.#local=new LocalDiffraction(this.el('local'),this.el('plot') as unknown as SVGSVGElement,()=>{const scene=this.getScene(),p=this.parameters(scene.save_state());return p?{scene,p}:undefined;});
     entry.setAttribute('aria-controls',host.id);entry.setAttribute('aria-expanded','false');entry.onclick=()=>this.setOpen(!this.#open);
     this.el('close').onclick=()=>this.setOpen(false);
     this.el('reset').onclick=()=>this.edit(c=>{
@@ -69,7 +92,30 @@ export class DiffractionPanel {
       else p.intensity_model={...(p.intensity_model??this.#lastIntensity??{}),kind:kind as IntensityModel['kind'],sigma_g_invA:p.intensity_model?.sigma_g_invA??this.#lastIntensity?.sigma_g_invA??.001};
     });
     this.el<HTMLInputElement>('sigma').onchange=()=>this.settingsEdit(p=>{if(p.intensity_model)p.intensity_model.sigma_g_invA=this.num('sigma');});
-    this.el<HTMLInputElement>('gray-max').onchange=()=>this.settingsEdit(p=>{if(p.intensity_model)p.intensity_model.gray_max=this.num('gray-max');});
+    this.el<HTMLSelectElement>('sampling').onchange=()=>this.settingsEdit(p=>{if(p.intensity_model)p.intensity_model.preview_sampling=this.el<HTMLSelectElement>('sampling').value as 'adaptive'|'raw';});
+    for(const [id,factor]of [['width-down',.8],['width-up',1.25]] as const)this.el(id).onclick=()=>this.settingsEdit(p=>{
+      if(p.intensity_model?.kind==='gaussian_3d')p.intensity_model.sigma_g_invA=(p.intensity_model.sigma_g_invA??.001)*factor;
+      else if(p.intensity_model)p.spot_diameter_invA=Math.max(.000001,Math.min(.2,p.spot_diameter_invA*factor));
+    });
+    this.el('width-default').onclick=()=>this.settingsEdit(p=>{if(p.intensity_model?.kind==='gaussian_3d')p.intensity_model.sigma_g_invA=.001;else if(p.intensity_model)p.spot_diameter_invA=4*Math.sqrt(Math.log(2))*.001;});
+    this.el('match-width').onclick=()=>this.settingsEdit(p=>{
+      const im=p.intensity_model;if(!im)return;
+      if(im.kind==='gaussian_3d'){
+        const D=4*Math.sqrt(Math.log(2))*(im.sigma_g_invA??.001);
+        if(D>.2||D<.000001)throw new Error('匹配后的球斑直径超出模拟器范围，请先调整高斯宽度。');
+        p.spot_diameter_invA=D;im.kind='uniform_sphere_3d';
+      }else{im.sigma_g_invA=p.spot_diameter_invA/(4*Math.sqrt(Math.log(2)));im.kind='gaussian_3d';}
+    });
+    this.el('fit-gray').onclick=()=>this.settingsEdit(p=>{
+      if(!p.intensity_model||!this.#result?.images)throw new Error('请先生成有效的三维积分预览，再适配亮度。');
+      if(this.#result.integration_status!=='resolved')throw new Error('当前积分尚未完成，请先切换自动分组或缩窄斑宽，再适配亮度。');
+      const values=downsample(this.#result.images.map(i=>i.tile),this.#result.panel.pixels,previewGrid(this.#result.panel.pixels));
+      const peak=values.reduce((a,b)=>Math.max(a,b),0);
+      if(!(peak>0))throw new Error('当前帧没有入板信号，无法适配亮度；请先调整姿态或载入对中示例。');
+      p.intensity_model.gray_max=peak;
+      this.#grayTagValue=peak;this.#grayOrigin='会话内已人工适配一次';
+    });
+    this.el<HTMLInputElement>('gray-max').onchange=()=>this.settingsEdit(p=>{if(p.intensity_model){p.intensity_model.gray_max=this.num('gray-max');this.#grayTagValue=p.intensity_model.gray_max;this.#grayOrigin='会话内手动设置';}});
     this.el<HTMLInputElement>('display-threshold').onchange=()=>this.settingsEdit(p=>{if(p.intensity_model)p.intensity_model.display_threshold=this.num('display-threshold');});
     this.el<HTMLInputElement>('labels').onchange=()=>this.settingsEdit(p=>p.show_hkl=this.el<HTMLInputElement>('labels').checked);
     this.el<HTMLSelectElement>('model').onchange=()=>this.settingsEdit(p=>p.reflection_model=this.el<HTMLSelectElement>('model').value as 'fcc'|'primitive');
@@ -87,7 +133,7 @@ export class DiffractionPanel {
       p.sample_shape={kind,size_mm:[x,kind==='cylinder'?x:this.num('size-y'),this.num('size-z')]};p.beam_size_mm=[this.num('beam-x'),this.num('beam-y')];p.hkl_limit=this.num('limit');
     });
     this.el<HTMLSelectElement>('shape').onchange=()=>this.shapeFields();
-    this.el<HTMLSelectElement>('spots').onchange=()=>{this.#selected=this.el<HTMLSelectElement>('spots').value;this.draw();};
+    this.el<HTMLSelectElement>('spots').onchange=()=>{this.#selected=this.el<HTMLSelectElement>('spots').value;this.draw();this.locateSelected();};
   }
   private el<T extends HTMLElement=HTMLElement>(id:string){return this.host.querySelector<T>('#dp-'+id)!;}
   private num(id:string){const el=this.el<HTMLInputElement>(id);return el.value.trim()===''?NaN:Number(el.value);}
@@ -103,16 +149,17 @@ export class DiffractionPanel {
   setOpen(open:boolean){
     this.#open=open;this.host.hidden=!open;this.entry.setAttribute('aria-expanded',String(open));document.querySelector('.workbench')!.classList.toggle('diffraction-open',open);
     if(open)this.#formKey='';this.#refresh.setOpen(open);
+    this.#local.setActive(open);
     if(open)this.el('close').focus();else this.entry.focus();
   }
-  update(moving?:boolean){this.#refresh.update(moving);}
+  update(moving=this.#moving){this.#moving=moving;this.#local.update(moving);this.#refresh.update(moving);}
   private refresh(){
     const scene=this.getScene(),c=scene.save_state(),p=this.parameters(c);
     this.skeletonReference(scene,c,p);
     const formKey=JSON.stringify([p,c.devices,c.assembly.frames,c.assembly.beam.point_mm,p&&scene.get_world_transform(p.detector_id).matrix]);
     if(formKey!==this.#formKey){this.refreshFields(c,p);this.#formKey=formKey;}
     if(!p){this.#result=undefined;this.draw();typesetMath(this.host);this.message('请在高级区选择一个样品和探测器；缺少设备时无法预览。');return;}
-    try{this.#result=this.#model.compute(scene,p);this.draw();}
+    try{const adaptive=p.intensity_model?.preview_sampling!=='raw';this.#result=this.#model.compute(scene,p,{adaptiveBinning:adaptive,gaussianQuadrature:adaptive?'plane':'rings'});this.draw();}
     catch(error){this.#result=undefined;this.draw();this.message(String(error instanceof Error?error.message:error),true);}
     typesetMath(this.host);
   }
@@ -124,15 +171,22 @@ export class DiffractionPanel {
     for(const id of ['energy','cell-a','diameter','labels','model','reset','apply-shape','intensity'])this.el<HTMLInputElement|HTMLButtonElement>(id).disabled=!p;
     this.el('calibration-distance').textContent=p?numberText(Math.abs(detectorNormalDistance(c,p.detector_id)),8):'—';
     this.el('enable-support').hidden=!p||!!detectorSupport(c,p.detector_id);
+    this.el('intensity-fields').hidden=!p?.intensity_model;this.el('sampling-controls').hidden=!p?.intensity_model;
     if(!p){this.el<HTMLDetailsElement>('advanced').open=true;this.spacing();return;}
     this.el<HTMLSelectElement>('intensity').disabled=!p;
     this.el<HTMLSelectElement>('intensity').value=p.intensity_model?.kind??'legacy';
     this.el('intensity-fields').hidden=!p.intensity_model;
+    this.el('sampling-controls').hidden=!p.intensity_model;
+    this.el<HTMLSelectElement>('sampling').value=p.intensity_model?.preview_sampling??'adaptive';
     this.el<HTMLInputElement>('sigma').disabled=p.intensity_model?.kind!=='gaussian_3d';
     this.el<HTMLInputElement>('diameter').disabled=p.intensity_model?.kind==='gaussian_3d';
     const intensityValues={'sigma':p.intensity_model?.sigma_g_invA??.001,'gray-max':p.intensity_model?.gray_max??100,'display-threshold':p.intensity_model?.display_threshold??0};
     for(const [id,v]of Object.entries(intensityValues))if(force||document.activeElement!==this.el(id))this.el<HTMLInputElement>(id).value=String(v);
-    this.el('intensity-note').textContent=p.intensity_model?'固定姿态、单位曝光的相对像素积分。σ_g 是倒易空间标准差，均匀球使用倒易直径；均未按实测峰宽标定。512² 预览格按原始像素信号求和，缩图前后总量保持；灰度上限跨帧固定，显示阈值不删除原始信号。':'旧圆斑为几何示意，不是积分强度图。选择三维模型后，强度和落点由同一次 Ewald 球面截取给出。';
+    this.el<HTMLInputElement>('sigma').step=String((p.intensity_model?.sigma_g_invA??.001)/10);
+    this.el<HTMLInputElement>('diameter').step=p.intensity_model?.kind==='uniform_sphere_3d'?String(Math.max(.000001,p.spot_diameter_invA/10)):'0.01';
+    this.el('match-width').textContent=p.intensity_model?.kind==='gaussian_3d'?'按近似峰宽匹配为均匀球':'按近似峰宽匹配为高斯';
+    this.el('width-note').textContent=p.intensity_model?.kind==='gaussian_3d'?`三维高斯的标准差 σ_g，单轴剖面 FWHM≈${numberText(2*Math.sqrt(2*Math.log(2))*(p.intensity_model.sigma_g_invA??.001),7)} Å⁻¹，不是旋转角宽。可先用0.001；展宽会增加离峰信号和计算量。匹配按钮只匹配局部平面近似的 rocking 峰宽，仍保持三维总量 W。`:'均匀球使用直径 D=2R，不是高斯标准差。推荐 D≈0.00333 Å⁻¹ 对应 σ_g=0.001 的近似峰宽；旧示意值 D=0.1 会产生很宽的反射。匹配按钮不预测实测峰宽。';
+    this.el('intensity-note').textContent=p.intensity_model?'固定姿态、单位曝光的相对信号。自动模式对宽斑合并相邻像素后积分，保留同一个三维模型和总量；会损失组内细节，不是逐原始像素结果。全局灰度上限和显示阈值按每显示格积分信号解释；4288²板显示为536²，每格几何范围8×8 raw。局部标尺按每原始像素解释。“适配亮度”仅执行一次，后续帧仍使用同一标尺。':'旧圆斑为几何示意，不是积分强度图。选择三维模型后，强度和落点由同一次 Ewald 球面截取给出。';
     this.el('caveat').textContent=p.intensity_model?'理想模型：均匀光束、受照重心单点发射、三维倒易斑的 Ewald 球面与像素边界积分。每帧为固定姿态单位曝光的相对信号，不替代标定、材料强度或实测计数。':'近似模型：均匀光束、单点发射、有限倒易球局部截面。用途是检查几何变化，不替代标定或实测信号。';
     const cell=c.devices.devices.find(d=>d.id===p.sample_id)!.crystal!.cell;
     const values:Record<string,string|number>={energy:p.energy_keV,'cell-a':cell.a,diameter:p.spot_diameter_invA,model:p.reflection_model,shape:p.sample_shape.kind,'size-x':p.sample_shape.size_mm[0],'size-y':p.sample_shape.size_mm[1],'size-z':p.sample_shape.size_mm[2],'beam-x':p.beam_size_mm[0],'beam-y':p.beam_size_mm[1],limit:p.hkl_limit};
@@ -198,14 +252,18 @@ export class DiffractionPanel {
     this.el('detail').textContent='点击图中斑点或选择反射，查看详情。';this.el('source').textContent='';this.el('light-info').textContent='';this.host.dataset.revision=String(r?.revision??-1);
     this.host.dataset.result=JSON.stringify({revision:-1,spots:[]});this.host.dataset.spotCount='0';this.host.dataset.illumination='unavailable';
     this.el('normal-distance').textContent=r?.source_normal_distance_mm!==undefined?numberText(r.source_normal_distance_mm,8):'—';
-    if(!r)return;
-    let rawSum=0,previewSum=0;
+    if(!r){this.#local.overlay();return;}
+    const grid=previewGrid(r.panel.pixels);this.host.dataset.previewGrid=JSON.stringify(grid);
+    const gray=p?.intensity_model?.gray_max??100;if(gray!==this.#grayTagValue)this.#grayOrigin='既有配置/初值';
+    this.host.dataset.grayOrigin=this.#grayOrigin;
+    let rawSum=0,previewSum=0;const samplingStride=Math.max(1,...(r.images??[]).map(i=>i.sampling_stride)),tilePeaks=new Map<PixelTile,number>();
+    const imageByHKL=new Map(r.images?.map(i=>[i.hkl.join(','),i]));
     if(r.images){
-      const pixels=downsample(r.images.map(i=>i.tile),r.panel.pixels,[512,512]);
+      const pixels=downsample(r.images.map(i=>i.tile),r.panel.pixels,grid,p?.show_hkl?(tile,peak)=>tilePeaks.set(tile,peak):undefined);
       rawSum=r.images.reduce((s,i)=>s+i.pixel_sum,0);previewSum=pixels.reduce((s,v)=>s+v,0);
-      const canvas=document.createElement('canvas');canvas.width=canvas.height=512;
-      const context=canvas.getContext('2d')!,data=context.createImageData(512,512),upper=p?.intensity_model?.gray_max??100,threshold=p?.intensity_model?.display_threshold??0;
-      pixels.forEach((v,i)=>{const gray=v<threshold?0:Math.round(255*Math.min(1,v/upper));data.data[4*i]=data.data[4*i+1]=data.data[4*i+2]=gray;data.data[4*i+3]=255;});
+      const canvas=document.createElement('canvas');canvas.width=grid[0];canvas.height=grid[1];
+      const context=canvas.getContext('2d')!,data=context.createImageData(...grid),upper=p?.intensity_model?.gray_max??100,threshold=p?.intensity_model?.display_threshold??0;
+      pixels.forEach((v,i)=>{const gray=displayGray(v,upper,threshold);data.data[4*i]=data.data[4*i+1]=data.data[4*i+2]=gray;data.data[4*i+3]=255;});
       context.putImageData(data,0,0);svg.append(this.svg('image',{x:42,y:18,width:438,height:438,href:canvas.toDataURL(),'image-rendering':'pixelated',class:'diffraction-intensity'}));
     }
     if(p){
@@ -221,21 +279,23 @@ export class DiffractionPanel {
     }
     svg.append(this.svg('text',{x:260,y:497,'text-anchor':'middle','font-size':13,fill:'#52616e'},'列 u / px →'));
     if(r.direct?.on_panel){const cx=x(r.direct.u),cy=y(r.direct.v);svg.append(this.svg('circle',{cx,cy,r:5,fill:'none',stroke:'#929292','stroke-width':1.5}),this.svg('path',{d:`M${cx-8} ${cy}h16 M${cx} ${cy-8}v16`,stroke:'#929292','stroke-width':1}));}
-    const labelBoxes:{x:number;y:number;w:number;h:number}[]=[];let labels=0;
+    const labelBoxes:{x:number;y:number;w:number;h:number}[]=[];let labels=0,dimLabels=0;
     for(const spot of r.spots){
       const key=spot.hkl.join(','),cx=x(spot.u),cy=y(spot.v),selected=key===this.#selected;
       // Minimum visible marker is independent of physical spot support and excitation threshold.
       const radius=Math.max(3,spot.radius_mm/r.panel.pixel_size_mm[0]/width*438),color=selected?'#ff91c5':'#e1e1e1';
       if(!r.images)svg.append(this.svg('circle',{cx,cy,r:radius,fill:'#f2f2f2','fill-opacity':spot.weight,class:'diffraction-spot','data-hkl':key}));
-      // Selection is a separate annotation; it does not recolor or brighten the signal.
-      if(selected)svg.append(this.svg('circle',{cx,cy,r:radius+3,fill:'none',stroke:'#ff91c5','stroke-width':1.5,class:'diffraction-selection'}));
-      const hit=this.svg('circle',{cx,cy,r:Math.max(9,radius),fill:'transparent',class:'diffraction-hit'});hit.addEventListener('click',()=>{this.#selected=key;this.draw();});svg.append(hit);
+      // Selection is conveyed by the HKL text/details and optional local ROI frame,
+      // without adding a shape over the diffraction intensity.
+      const hit=this.svg('circle',{cx,cy,r:Math.max(9,radius),fill:'transparent',class:'diffraction-hit'});hit.addEventListener('click',()=>{this.#selected=key;this.draw();this.locateSelected();});svg.append(hit);
       select.add(new Option(hklText(spot),key));
-      if(p?.show_hkl&&labels<24){
+      const image=imageByHKL.get(key),visible=r.images?labelVisible(image?tilePeaks.get(image.tile)??0:0,gray,p?.intensity_model?.display_threshold??0):Math.round(242*spot.weight)>=HKL_LABEL_MIN_GRAY;
+      if(p?.show_hkl&&!selected&&!visible)dimLabels++;
+      if(p?.show_hkl&&(selected||visible)&&labels<24){
         const text=hklText(spot),w=text.length*7.5+8,h=19;
         const candidates=[[cx+10,cy-20],[cx-w-10,cy-20],[cx+10,cy+7],[cx-w-10,cy+7]];
         const pos=candidates.find(([px,py])=>px>=43&&py>=19&&px+w<479&&py+h<455&&!labelBoxes.some(b=>px<b.x+b.w&&px+w>b.x&&py<b.y+b.h&&py+h>b.y));
-        if(pos){const [px,py]=pos;labelBoxes.push({x:px,y:py,w,h});svg.append(this.svg('rect',{x:px,y:py,width:w,height:h,fill:'#171717ed',rx:2}),this.svg('text',{x:px+4,y:py+14,fill:color,'font-size':14,'font-weight':600},text));labels++;}
+        if(pos){const [px,py]=pos;labelBoxes.push({x:px,y:py,w,h});svg.append(this.svg('rect',{x:px,y:py,width:w,height:h,fill:'#171717ed',rx:2}),this.svg('text',{x:px+4,y:py+14,fill:color,'font-size':14,'font-weight':600,class:'diffraction-hkl-label','data-hkl':key},text));labels++;}
       }
     }
     select.value=this.#selected;if(!select.value)this.#selected='';
@@ -244,19 +304,23 @@ export class DiffractionPanel {
       this.el('detail').innerHTML=`${math(`(${selected.hkl.join(',')})`,hklText(selected))} · ${math(String.raw`d=${numberText(selected.d_A,5)}\,\text{\AA}`,`d=${numberText(selected.d_A,5)} Å`)} · ${math(String.raw`2\theta=${numberText(selected.two_theta_deg,4)}^\circ`,`2θ=${numberText(selected.two_theta_deg,4)}°`)}<br>原始像素 ${math(`(u,v)=(${numberText(selected.u,2)},${numberText(selected.v,2)})`,`(u, v)=(${numberText(selected.u,2)}, ${numberText(selected.v,2)})`)}<br>偏离衍射条件 ${math(String.raw`${numberText(selected.error_invA,6)}\,\text{\AA}^{-1}`,`${numberText(selected.error_invA,6)} Å⁻¹`)} · 相对几何响应 ${numberText(selected.weight,3)}`;
       typesetMath(this.el('detail'));
       const image=r.images?.find(i=>i.hkl.every((v,j)=>v===selected.hkl[j]));
-      if(image){const detail=document.createElement('p');detail.textContent=`W=${numberText(image.W,5)} · 全球面积分 ${numberText(image.sphere_integral,6)} · 原始像素和 ${numberText(image.pixel_sum,6)} · 板内接收比例估计 ${image.received_fraction_estimate===null?'—':numberText(image.received_fraction_estimate,6)} · ${image.status==='resolved'?'积分已收敛':image.reason}`;this.el('detail').append(detail);}
+      if(image){const detail=document.createElement('p');detail.textContent=`W=${numberText(image.W,5)} · 全球面积分 ${numberText(image.sphere_integral,6)} · ${image.sampling_stride>1?'分组积分和':'原始像素和'} ${numberText(image.pixel_sum,6)} · 板内接收比例估计 ${image.received_fraction_estimate===null?'—':numberText(image.received_fraction_estimate,6)} · ${image.status==='resolved'?'积分已收敛':formatIntegrationFailure(image.reason)}`;this.el('detail').append(detail);}
     }
     const light=r.illumination;this.host.dataset.spotCount=String(r.spots.length);this.host.dataset.illumination=light.status;this.host.dataset.computeMs=String(r.duration_ms);
-    const annotation=p?.show_hkl&&labels<r.spots.length?`；${r.spots.length-labels} 个标签未展开，可从列表查看`:'';
+    this.host.dataset.labels=JSON.stringify({minimum_gray:HKL_LABEL_MIN_GRAY,hidden_by_brightness:dimLabels,drawn:labels});
+    const annotation=p?.show_hkl?`${dimLabels?`；${dimLabels} 个HKL低于标注亮度下限，列表保留`:''}${r.spots.length-dimLabels-labels>0?`；${r.spots.length-dimLabels-labels} 个标签因避让/版面未展开`:''}`:'';
     this.message(light.status==='outside'?'光束未照到样品。':light.status==='unresolved'?'交叠低于当前采样分辨率，暂不生成信号。':r.spots.length?`面板内 ${r.spots.length} 个预测反射${annotation}`:r.excited_count?'有反射满足衍射条件，但均落在面板外。':'当前姿态下没有反射满足衍射条件。');
     if(r.images&&light.status==='lit'){
       const failures=r.images.filter(i=>i.status==='unresolved');
-      this.message(failures.length?`积分未完成：${failures[0].reason}；当前图像不能作为合格数值结果。`:`原始像素和 ${numberText(rawSum,6)}；512² 预览总和 ${numberText(previewSum,6)}；${r.spots.length} 个入板反射（计算支持内）。`,failures.length>0);
+      const sampling=samplingStride>1?`自动分组，最大 ${samplingStride}×${samplingStride} 原始像素/组；组内细节未解析。`:'逐原始像素。';
+      this.message((failures.length?`${formatIntegrationFailure(failures[0].reason)} 当前仅为未完成预览；可切换自动分组、使用推荐斑宽或减小枚举范围。`:`${sampling} ${samplingStride>1?'分组积分和':'原始像素和'} ${numberText(rawSum,6)}；${grid[0]}×${grid[1]} 预览总和 ${numberText(previewSum,6)}；${r.spots.length} 个入板反射（计算支持内）${annotation}。${r.spots.length===0?'当前姿态无入板信号，可调整旋转角或载入理想对中示例。':''}`)+` 全局标尺：每显示格积分信号，上限 ${gray.toPrecision(6)}（${this.#grayOrigin}）。`,failures.length>0);
     }
     this.el('source').textContent=(light.centroid_lab_mm?`发射重心 LAB (${light.centroid_lab_mm.map(v=>numberText(v,4)).join(', ')}) mm；交叠体积约 ${numberText(light.volume_mm3,6)} mm³。`:'')+` 体积积分 ${light.resolution}×${light.resolution}；枚举各指标 −${p?.hkl_limit}…${p?.hkl_limit}。`;
     this.host.dataset.result=JSON.stringify({revision:r.revision,source:light.centroid_lab_mm,source_normal_distance_mm:r.source_normal_distance_mm,spots:r.spots.map(s=>({hkl:s.hkl,u:s.u,v:s.v,weight:s.weight}))});
-    if(r.images){this.host.dataset.integration=r.integration_status;this.host.dataset.rawSum=String(rawSum);this.host.dataset.previewSum=String(previewSum);this.host.dataset.result=JSON.stringify({revision:r.revision,mode:p?.intensity_model?.kind,source:light.centroid_lab_mm,source_normal_distance_mm:r.source_normal_distance_mm,integration:r.integration_status,raw_sum:rawSum,preview_sum:previewSum,gray_max:p?.intensity_model?.gray_max??100,spots:r.spots.map(s=>({hkl:s.hkl,u:s.u,v:s.v})),images:r.images.filter(i=>i.pixel_sum>0||i.status==='unresolved').map(i=>({hkl:i.hkl,pixel_sum:i.pixel_sum,sphere_integral:i.sphere_integral,tail_bound:i.tail_bound,estimated_quadrature_error:i.estimated_quadrature_error,status:i.status,reason:i.reason}))});}
+    if(r.images){this.host.dataset.integration=r.integration_status;if(samplingStride===1)this.host.dataset.rawSum=String(rawSum);this.host.dataset.previewSum=String(previewSum);this.host.dataset.result=JSON.stringify({revision:r.revision,raw_pixels:r.panel.pixels,preview_grid:grid,gray_origin:this.#grayOrigin,algorithm:p?.intensity_model?.kind==='gaussian_3d'&&p.intensity_model.preview_sampling!=='raw'?'gaussian-plane-with-ring-fallback':'rings',mode:p?.intensity_model?.kind,source:light.centroid_lab_mm,source_normal_distance_mm:r.source_normal_distance_mm,integration:r.integration_status,sampling_stride:samplingStride,raw_sum:samplingStride===1?rawSum:null,integrated_sum:rawSum,preview_sum:previewSum,gray_max:p?.intensity_model?.gray_max??100,spots:r.spots.map(s=>({hkl:s.hkl,u:s.u,v:s.v})),images:r.images.filter(i=>i.pixel_sum>0||i.status==='unresolved').map(i=>({hkl:i.hkl,pixel_sum:i.pixel_sum,sampling_stride:i.sampling_stride,sphere_integral:i.sphere_integral,tail_bound:i.tail_bound,estimated_quadrature_error:i.estimated_quadrature_error,status:i.status,reason:i.reason}))});}
     else{delete this.host.dataset.integration;delete this.host.dataset.rawSum;delete this.host.dataset.previewSum;}
+    this.#local.overlay();
   }
-  dispose(){this.#refresh.dispose();}
+  private locateSelected(){const s=this.#result?.spots.find(s=>s.hkl.join(',')===this.#selected);if(s)this.#local.locate(s.u,s.v);}
+  dispose(){this.#local.dispose();this.#refresh.dispose();}
 }

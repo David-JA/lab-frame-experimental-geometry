@@ -36,6 +36,7 @@ export function withDefaultDiffractionParameters(input:SceneConfig,sampleId?:str
   sample.crystal!.cell={a:3.59033485,b:3.59033485,c:3.59033485,alpha_deg:90,beta_deg:90,gamma_deg:90};
   c.diffraction=defaultDiffraction(c,p.sample_id,p.detector_id)!;
   if(input.diffraction?.intensity_model)c.diffraction.intensity_model={kind:input.diffraction.intensity_model.kind,sigma_g_invA:.001};
+  if(c.diffraction.intensity_model?.kind==='uniform_sphere_3d')c.diffraction.spot_diameter_invA=4*Math.sqrt(Math.log(2))*.001;
   return load_scene(c).save_state();
 }
 export function withAprilParameters(input:SceneConfig,sampleId?:string,detectorId?:string):SceneConfig {

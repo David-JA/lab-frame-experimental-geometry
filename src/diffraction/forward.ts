@@ -1,12 +1,21 @@
 import type { Vec3 } from '../core/types';
 import { add, sub, scale, dot, cross, norm, unit } from '../core/math';
 import type { Panel } from './model';
+import { gaussianPlaneCell } from './gaussian-plane';
 
 /** Reciprocal g-space, A^-1, g_ref=1 A^-1; unit exposure, no material weights. */
 export type Density = {kind:'gaussian_3d';sigma_g_invA:number} | {kind:'uniform_sphere_3d';radius_g_invA:number};
-export interface PixelTile { u0:number;v0:number;width:number;height:number;data:Float64Array }
+export interface PixelTile { u0:number;v0:number;width:number;height:number;data:Float64Array;stride?:number }
+export interface RawRectangle { u0:number;v0:number;width:number;height:number }
+export function validateRawRectangle(r:RawRectangle){
+  if(!r||![r.u0,r.v0,r.width,r.height].every(Number.isSafeInteger)||r.width<=0||r.height<=0||!Number.isSafeInteger(r.u0+r.width)||!Number.isSafeInteger(r.v0+r.height))throw new Error('Invalid raw ROI rectangle');
+}
+export const previewGrid=(pixels:[number,number]):[number,number]=>pixels[0]===4288&&pixels[1]===4288?[536,536]:[512,512];
 export interface IntegrationOptions {
   relativeTolerance?:number; absoluteScale?:number; maxPixels?:number; maxEvaluations?:number; maxDepth?:number;
+  adaptiveBinning?:boolean; pixelStride?:number;targetPreviewCells?:number;
+  rawROI?:RawRectangle;
+  gaussianQuadrature?:'rings'|'plane';
 }
 export interface ReflectionImage {
   hkl:Vec3;g_lab:Vec3;W:number;density:Density;tile:PixelTile;
@@ -14,6 +23,10 @@ export interface ReflectionImage {
   reference_board_integral:null;reference_retained_fraction:null;
   error_scale:number;scale_kind:'on_ewald_reference'|'supplied';tail_bound:number;cutoff_sigma:number|null;
   estimated_quadrature_error:number;evaluations:number;status:'resolved'|'unresolved';reason?:string;
+  raw_roi_pixels:number;sampling_stride:number;
+  integration_scope:'board'|'roi';
+  visited_cells:number;completed_cells:number;
+  plane_evaluations:number;plane_cells:number;fallback_cells:number;
 }
 const TAU=2*Math.PI, clamp=(v:number)=>Math.max(-1,Math.min(1,v));
 export function densityValue(d:Density,r:number,W=1):number {
@@ -108,23 +121,26 @@ function supportROI(panel:Panel,source:Vec3,axis:Vec3,t:number):[number,number,n
   return [Math.max(0,Math.ceil(Math.min(...us)-.5)),Math.min(Nu-1,Math.floor(Math.max(...us)+.5)),Math.max(0,Math.ceil(Math.min(...vs)-.5)),Math.min(Nv-1,Math.floor(Math.max(...vs)+.5))];
 }
 export function integrateReflection(panel:Panel,source:Vec3,g:Vec3,k:number,d:Density,W=1,hkl:Vec3=[0,0,0],options:IntegrationOptions={}):ReflectionImage {
+  if(options.gaussianQuadrature!==undefined&&!['rings','plane'].includes(options.gaussianQuadrature))throw new Error('Invalid Gaussian quadrature');
+  if(options.rawROI){validateRawRectangle(options.rawROI);if(options.adaptiveBinning||(options.pixelStride??1)!==1)throw new Error('Raw ROI requires stride=1 without adaptive binning');}
   if(d.kind!=='gaussian_3d'&&d.kind!=='uniform_sphere_3d')throw new Error('Unknown reciprocal density');
   if([source,g,hkl,panel.center,panel.x,panel.y,panel.normal].some(v=>!Array.isArray(v)||v.length!==3)||!Array.isArray(panel.pixels)||panel.pixels.length!==2||!Array.isArray(panel.pixel_size_mm)||panel.pixel_size_mm.length!==2)throw new Error('Invalid geometry dimensions');
   if([...source,...g,...hkl,...panel.center,...panel.x,...panel.y,...panel.normal].some(v=>!Number.isFinite(v)))throw new Error('Nonfinite geometry');
   if(panel.pixels.some(v=>!Number.isInteger(v)||v<1)||panel.pixel_size_mm.some(v=>!Number.isFinite(v)||v<=0))throw new Error('Invalid raw pixel grid');
   if([panel.x,panel.y,panel.normal].some(v=>Math.abs(norm(v)-1)>1e-8)||Math.abs(dot(panel.x,panel.y))>1e-8||norm(sub(cross(panel.x,panel.y),panel.normal))>1e-8)throw new Error('Panel basis must be right-handed and orthonormal');
-  for(const name of ['relativeTolerance','absoluteScale','maxPixels','maxEvaluations','maxDepth'] as const){
+  for(const name of ['relativeTolerance','absoluteScale','maxPixels','maxEvaluations','maxDepth','pixelStride','targetPreviewCells'] as const){
     const value=options[name];
     if(value===undefined)continue;
-    if(!Number.isFinite(value)||value<0||((name==='maxPixels'||name==='maxEvaluations'||name==='maxDepth')&&!Number.isInteger(value))||((name==='relativeTolerance'||name==='maxPixels'||name==='maxEvaluations')&&value===0))throw new Error(`Invalid integration option ${name}`);
+    if(!Number.isFinite(value)||value<0||((name==='maxPixels'||name==='maxEvaluations'||name==='maxDepth'||name==='pixelStride'||name==='targetPreviewCells')&&!Number.isInteger(value))||((name==='relativeTolerance'||name==='maxPixels'||name==='maxEvaluations'||name==='pixelStride'||name==='targetPreviewCells')&&value===0))throw new Error(`Invalid integration option ${name}`);
   }
+  if(options.adaptiveBinning!==undefined&&typeof options.adaptiveBinning!=='boolean')throw new Error('Invalid adaptive binning option');
   if(!(k>0&&Number.isFinite(k)&&Number.isFinite(W)&&W>=0))throw new Error('Invalid k or relative weight');
   const width=d.kind==='gaussian_3d'?d.sigma_g_invA:d.radius_g_invA;
   if(!(width>0&&Number.isFinite(width)))throw new Error('Invalid reciprocal width');
   const q=add(g,[0,0,k]),c=norm(q),J=sphereIntegral(d,k,c,W),Jscale=options.absoluteScale??sphereIntegral(d,k,k,W);
   if(!Number.isFinite(J)||!Number.isFinite(Jscale)||!Number.isFinite(c))throw new Error('Reciprocal density exceeds numerical range');
   const axis:Vec3=c>0?scale(q,1/c):[0,0,1],b=unit(cross(axis,Math.abs(axis[1])<.8?[0,1,0]:[1,0,0])),e=cross(axis,b);
-  const result:ReflectionImage={hkl:[...hkl],g_lab:[...g],W,density:{...d},tile:{u0:0,v0:0,width:0,height:0,data:new Float64Array()},sphere_integral:J,pixel_sum:0,received_fraction_estimate:J>0?0:null,reference_board_integral:null,reference_retained_fraction:null,error_scale:Jscale,scale_kind:options.absoluteScale===undefined?'on_ewald_reference':'supplied',tail_bound:0,cutoff_sigma:null,estimated_quadrature_error:0,evaluations:0,status:'resolved'};
+  const result:ReflectionImage={hkl:[...hkl],g_lab:[...g],W,density:{...d},tile:{u0:0,v0:0,width:0,height:0,data:new Float64Array()},sphere_integral:J,pixel_sum:0,received_fraction_estimate:J>0?0:null,reference_board_integral:null,reference_retained_fraction:null,error_scale:Jscale,scale_kind:options.absoluteScale===undefined?'on_ewald_reference':'supplied',tail_bound:0,cutoff_sigma:null,estimated_quadrature_error:0,evaluations:0,status:'resolved',raw_roi_pixels:0,sampling_stride:1,integration_scope:options.rawROI?'roi':'board',visited_cells:0,completed_cells:0,plane_evaluations:0,plane_cells:0,fallback_cells:0};
   if(Math.abs(dot(panel.normal,sub(panel.center,source)))<1e-10){result.status='unresolved';result.reason='Detector plane contains the source';return result;}
   if(J===0)return result;
   // Direction/frame arithmetic has O(epsilon) angular uncertainty. Below this
@@ -138,23 +154,40 @@ export function integrateReflection(panel:Panel,source:Vec3,g:Vec3,k:number,d:De
       result.tail_bound=tcap===2?0:base/alpha*TAU*Math.exp(-alpha*tcap)*(-Math.expm1(-alpha*(2-tcap)));
       if(result.tail_bound<=1e-10*Jscale)break;
     }
-    result.cutoff_sigma=m;
+    result.cutoff_sigma=Math.min(m,32);
     if(result.tail_bound>1e-6*Jscale){result.status='unresolved';result.reason='Tail budget exceeded';return result;}
   }else if(d.kind==='uniform_sphere_3d'&&c>0)tcap=Math.min(2,(d.radius_g_invA**2-(c-k)**2)/(2*k*c));
   if(tcap<=0)return result;
-  const [u0,u1,v0,v1]=supportROI(panel,source,axis,tcap),widthPixels=Math.max(0,u1-u0+1),height=Math.max(0,v1-v0+1),count=widthPixels*height;
-  if(count>(options.maxPixels??200000)){result.status='unresolved';result.reason=`ROI ${count} pixels exceeds integration budget`;return result;}
-  result.tile={u0,v0,width:widthPixels,height,data:new Float64Array(count)};
+  let [u0,u1,v0,v1]=supportROI(panel,source,axis,tcap);
+  if(options.rawROI){const roi=options.rawROI;u0=Math.max(u0,roi.u0);u1=Math.min(u1,roi.u0+roi.width-1);v0=Math.max(v0,roi.v0);v1=Math.min(v1,roi.v0+roi.height-1);}
+  const rawCount=Math.max(0,u1-u0+1)*Math.max(0,v1-v0+1);result.raw_roi_pixels=rawCount;
+  if(rawCount===0)return result;
+  // Each preview cell is an integral over a union of physical pixels, not a
+  // Gaussian blur or a per-frame renormalization. Raw callers default to 1.
+  const automatic=options.adaptiveBinning?2**Math.max(0,Math.ceil(Math.log2(Math.sqrt(rawCount/(options.targetPreviewCells??1024))))):1;
+  const stride=Math.max(options.pixelStride??1,automatic);result.sampling_stride=stride;
+  u0=Math.floor(u0/stride)*stride;v0=Math.floor(v0/stride)*stride;
+  const widthPixels=Math.ceil((u1-u0+1)/stride),height=Math.ceil((v1-v0+1)/stride),count=widthPixels*height;
+  if(count>(options.maxPixels??200000)){result.status='unresolved';result.reason=`ROI needs ${count} integration cells (${rawCount} raw pixels); remaining frame budget ${options.maxPixels??200000}`;return result;}
+  result.tile={u0,v0,width:widthPixels,height,data:new Float64Array(count),...(stride>1?{stride}:{})};
   const rel=options.relativeTolerance??2e-6,state={evaluations:0,max:options.maxEvaluations??2000000,ok:true};
   const perPixelAbs=1e-10*Jscale/Math.max(1,count),depth=options.maxDepth??16;
   pixels:for(let j=0;j<height;j++)for(let i=0;i<widthPixels;i++){
     if(!state.ok)break pixels;
-    const {corners,normals}=cone(panel,source,[u0+i-.5,u0+i+.5,v0+j-.5,v0+j+.5]);
+    result.visited_cells++;
+    const bounds:[number,number,number,number]=[u0+i*stride-.5,Math.min(panel.pixels[0]-.5,u0+(i+1)*stride-.5),v0+j*stride-.5,Math.min(panel.pixels[1]-.5,v0+(j+1)*stride-.5)];
+    if(options.gaussianQuadrature==='plane'&&d.kind==='gaussian_3d'&&c>0){
+      const before=state.evaluations,plane=gaussianPlaneCell(panel,source,axis,k*c,d.sigma_g_invA,base,bounds,state,perPixelAbs,rel,Math.min(2,depth));
+      result.plane_evaluations+=state.evaluations-before;
+      if(plane){result.tile.data[j*widthPixels+i]=plane.value;result.pixel_sum+=plane.value;result.estimated_quadrature_error+=plane.error;result.plane_cells++;result.completed_cells++;continue;}
+      result.fallback_cells++;
+    }
+    const {corners,normals}=cone(panel,source,bounds);
     let value=0,error=0;
     if(c===0)value=base*pixelSolidAngle(corners);
     else{
       const breaks=polarBreaks(axis,corners,normals),low=breaks[0],high=Math.min(tcap,breaks[breaks.length-1]);
-      if(low>=high)continue;
+      if(low>=high){result.completed_cells++;continue;}
       if(d.kind==='uniform_sphere_3d'&&breaks[breaks.length-1]<=tcap)value=base*pixelSolidAngle(corners);
       else{
         const edges=[low,...breaks.filter(t=>t>low&&t<high),high],coeff=normals.map(n=>[dot(n,axis),dot(n,b),dot(n,e)] as Vec3);
@@ -167,23 +200,33 @@ export function integrateReflection(panel:Panel,source:Vec3,g:Vec3,k:number,d:De
       }
     }
     result.tile.data[j*widthPixels+i]=value;result.pixel_sum+=value;result.estimated_quadrature_error+=error;
+    if(state.ok&&Number.isFinite(value)&&Number.isFinite(error))result.completed_cells++;
   }
   result.evaluations=state.evaluations;result.received_fraction_estimate=J>0?result.pixel_sum/J:null;
+  if(!state.ok){result.status='unresolved';result.reason=state.evaluations+12>state.max?`Pixel quadrature evaluation budget exhausted (${state.evaluations}/${state.max})`:'Pixel quadrature depth limit reached';return result;}
   if(!Number.isFinite(result.pixel_sum)||!Number.isFinite(result.estimated_quadrature_error)){result.status='unresolved';result.reason='Nonfinite pixel quadrature result';return result;}
-  if(!state.ok||result.estimated_quadrature_error>1e-3*result.pixel_sum+1e-6*Jscale){result.status='unresolved';result.reason='Pixel quadrature budget or convergence limit reached';}
+  if(result.estimated_quadrature_error>1e-3*result.pixel_sum+1e-6*Jscale){result.status='unresolved';result.reason='Pixel quadrature error exceeds tolerance';}
   return result;
 }
 
 /** Conservative area-overlap reduction of raw integrated pixels (never interpolates intensities). */
-export function downsample(tiles:PixelTile[],pixels:[number,number],size:[number,number]):Float64Array {
+export function downsample(tiles:PixelTile[],pixels:[number,number],size:[number,number],onTilePeak?:(tile:PixelTile,peak:number)=>void):Float64Array {
   const [w,h]=size,out=new Float64Array(w*h),sx=w/pixels[0],sy=h/pixels[1];
-  for(const tile of tiles)for(let j=0;j<tile.height;j++)for(let i=0;i<tile.width;i++){
+  for(const tile of tiles){
+    // Sparse per-reflection display statistics, sharing this exact reduction pass.
+    // Never allocate a full preview image for each HKL or mix in another reflection.
+    const bins=onTilePeak&&tile.data.length?new Map<number,number>():undefined;let peak=0;
+    for(let j=0;j<tile.height;j++)for(let i=0;i<tile.width;i++){
     const value=tile.data[j*tile.width+i];if(value===0)continue;
-    const x0=(tile.u0+i)*sx,x1=x0+sx,y0=(tile.v0+j)*sy,y1=y0+sy;
+    const stride=tile.stride??1,x0=(tile.u0+i*stride)*sx,x1=Math.min(pixels[0],tile.u0+(i+1)*stride)*sx,y0=(tile.v0+j*stride)*sy,y1=Math.min(pixels[1],tile.v0+(j+1)*stride)*sy;
     for(let y=Math.floor(y0);y<Math.ceil(y1)&&y<h;y++)for(let x=Math.floor(x0);x<Math.ceil(x1)&&x<w;x++){
       if(x<0||y<0)continue;
-      out[y*w+x]+=value*Math.max(0,Math.min(x1,x+1)-Math.max(x0,x))/sx*Math.max(0,Math.min(y1,y+1)-Math.max(y0,y))/sy;
+      const index=y*w+x,amount=value*Math.max(0,Math.min(x1,x+1)-Math.max(x0,x))/(x1-x0)*Math.max(0,Math.min(y1,y+1)-Math.max(y0,y))/(y1-y0);
+      out[index]+=amount;
+      if(bins&&amount>0){const total=(bins.get(index)??0)+amount;bins.set(index,total);peak=Math.max(peak,total);}
     }
+    }
+    onTilePeak?.(tile,peak);
   }
   return out;
 }

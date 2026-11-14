@@ -213,6 +213,6 @@ if __name__=="__main__":
         font=figures(data,refs,out)
     glyph_warnings=[str(w.message) for w in caught if "Glyph" in str(w.message)]
     assert not glyph_warnings,glyph_warnings
-    report={"status":"PASS","method":"Independent scipy Cartesian detector-plane quadrature; production uses polar ring arcs","font":font,"cases":refs,"glyph_warnings":glyph_warnings}
+    report={"status":"PASS","method":"Independent scipy Cartesian detector-plane quadrature; production: "+data.get("algorithm","ewald-pixel-rings-v1"),"font":font,"cases":refs,"glyph_warnings":glyph_warnings}
     (out/"independent-reference.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(f'Independent audit PASS: {len(refs["A1"])} rocking reference frames, {len(refs["A2"])} board cases, {sum(len(r["pixels"]) for r in refs["A2"])} pixel references; font: {font}')

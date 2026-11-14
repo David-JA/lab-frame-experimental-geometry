@@ -95,6 +95,8 @@ input[aria-invalid=true]{border-color:#c54a3b}a{color:var(--accent)}.file{font-s
 .diffraction-panel{overflow:auto;min-width:0;padding:16px;border-left:1px solid var(--line);background:#fff}
 .diffraction-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.diffraction-heading h2{margin:0 0 4px;font-size:16px}.diffraction-heading button{font-size:12px}
 .diffraction-heading-actions{display:flex;gap:6px;flex-shrink:0}
+.local-diffraction{border:1px solid var(--line);padding:10px;border-radius:5px;margin:12px 0;font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif}.local-diffraction canvas{display:block;width:100%;max-width:100%;height:auto;image-rendering:pixelated;background:#000;margin:auto}.local-diffraction canvas.stale{opacity:.45}.local-diffraction p{overflow-wrap:anywhere}.local-diffraction .diffraction-fields{align-items:end}.local-diffraction .diffraction-fields>div{display:flex;gap:6px;flex-wrap:wrap}
+#dp-plot:has(#dp-local-box){touch-action:none;cursor:crosshair}
 .inline-math{display:inline-block;vertical-align:middle;max-width:100%}.inline-math .katex{font-size:1.05em}.diffraction-reference-table .katex{font-size:1em}
 .diffraction-reference-table{width:100%;border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}.diffraction-reference-table th,.diffraction-reference-table td{text-align:left;padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}.diffraction-reference-table th{font-weight:600;color:#46535e}
 .diffraction-status{font-size:13px;min-height:42px;line-height:1.6;color:#304d66;margin:14px 0 3px}

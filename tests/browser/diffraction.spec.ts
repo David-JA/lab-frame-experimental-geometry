@@ -78,8 +78,8 @@ test('DP07–DP09: live diffraction, scene parameters, no illumination, restore 
   await page.locator('#open-diffraction').click();await expect(panel).toBeVisible();
   await expect(page.locator('#dp-diameter')).toHaveValue('0.1');
   await expect(page.locator('#dp-cell-a')).toHaveValue('3.59033485');
-  await expect(panel).toHaveAttribute('data-illumination','lit');
-  await expect(page.locator('#dp-light-info')).toContainText('高度 0 mm');
+  await expect(panel).toHaveAttribute('data-illumination','outside');
+  await expect(page.locator('#dp-light-info')).toContainText('高度 -2 mm');
   await page.locator('#dp-demo').evaluate(el=>(el.closest('details') as HTMLDetailsElement).open=true);
   await page.locator('#dp-demo').click();
   await expect(panel).toHaveAttribute('data-illumination','lit');
@@ -224,6 +224,8 @@ test('Online KaTeX renders formulas, units and reflection details without changi
   page.on('requestfailed',request=>{if(request.url().includes('/katex@'))failed.push(request.url());});
   await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
   const panel=page.locator('#diffraction-panel');await expect(panel).toHaveAttribute('data-math-status','ready',{timeout:30000});
+  await page.locator('.device-tree-row[data-device="hexapod"]').click();
+  await page.locator('[data-joint="hexapod.y"]').fill('22.5');await page.locator('[data-joint="hexapod.y"]').press('Tab');
   await page.locator('#dp-advanced').evaluate(el=>(el as HTMLDetailsElement).open=true);
   await expect(page.locator('#dp-cell-note .katex')).toHaveCount(1);
   await expect(page.locator('#dp-cell-note annotation')).toHaveText(String.raw`d=\dfrac{a}{\sqrt{h^2+k^2+l^2}}`);
@@ -292,9 +294,13 @@ test('DP09: mobile panel is readable and keeps controls reachable',async({page})
   await page.screenshot({path:'artifacts/diffraction-skeleton-mobile.png',fullPage:true});
 });
 
-test('Raised laboratory heights: actual default assembly is illuminated and visual-body overlap is not physical illumination',async({page})=>{
+test('Corrected laboratory heights: 120 mm XYtheta keeps the 2 mm beam miss until explicitly centered',async({page})=>{
   await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
-  const panel=page.locator('#diffraction-panel');await expect(panel).toHaveAttribute('data-illumination','lit');
+  const panel=page.locator('#diffraction-panel');await expect(panel).toHaveAttribute('data-illumination','outside');
+  await expect(page.locator('#dp-light-info')).toContainText('高度 -2 mm');
+  await page.locator('.device-tree-row[data-device="hexapod"]').click();
+  const y=page.locator('[data-joint="hexapod.y"]');await expect(y).toHaveValue('20.5');
+  await y.fill('22.5');await y.press('Tab');await expect(panel).toHaveAttribute('data-illumination','lit');
   await expect(page.locator('#dp-light-info')).toContainText('高度 0 mm');
   await expect(panel).toHaveAttribute('data-spot-count','8');
   await page.locator('.device-tree-row[data-device="rotary"]').click();
@@ -302,18 +308,20 @@ test('Raised laboratory heights: actual default assembly is illuminated and visu
   await expect(page.locator('#dp-spots')).toContainText('(2 0 0)');await page.locator('#camera-apparatus').click();
   await page.screenshot({path:'artifacts/height-aligned-preview.png'});
   const snapshot=await page.locator('#readout').evaluate(el=>JSON.parse((el as HTMLElement).dataset.state!).snapshot);
-  expect(snapshot.assembly.frames.find((f:{id:string})=>f.id==='R').mount.position_mm[1]).toBe(800);
+  expect(snapshot.assembly.frames.find((f:{id:string})=>f.id==='R').mount.position_mm[1]).toBe(700);
   expect(snapshot.experiment_state.joints['z_stage.z']).toBe(200);
   await page.locator('.device-tree-row[data-device="hexapod"]').click();
-  const y=page.locator('[data-joint="hexapod.y"]');await y.fill('16');await y.press('Tab');
+  await y.fill('18');await y.press('Tab');
   await expect(panel).toHaveAttribute('data-illumination','outside');await expect(page.locator('#dp-light-info')).toContainText('高度 -4.5 mm');
   await expect(page.locator('#dp-status')).toContainText('光束未照到样品');await page.screenshot({path:'artifacts/height-physical-miss.png'});
-  await y.fill('20.5');await y.press('Tab');await expect(panel).toHaveAttribute('data-illumination','lit');await expect(page.locator('#dp-spots')).toContainText('(2 0 0)');
+  await y.fill('22.5');await y.press('Tab');await expect(panel).toHaveAttribute('data-illumination','lit');await expect(page.locator('#dp-spots')).toContainText('(2 0 0)');
 });
 
 test('Moving preview: samples once per second before pausing, then flushes the final pose',async({page})=>{
   await page.clock.install({time:new Date('2026-11-11T00:00:00Z')});await page.clock.pauseAt(new Date('2026-11-11T00:00:01Z'));
   await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
+  await page.locator('.device-tree-row[data-device="hexapod"]').click();
+  await page.locator('[data-joint="hexapod.y"]').fill('22.5');await page.locator('[data-joint="hexapod.y"]').press('Tab');
   await page.locator('.device-tree-row[data-device="rotary"]').click();
   const panel=page.locator('#diffraction-panel'),bar=page.locator('#device-rotary .motion-runner');
   const previewRevision=async()=>Number(await panel.getAttribute('data-revision'));
@@ -345,6 +353,7 @@ test('Detector support X/Z positioning preserves calibration and reports normal 
     await page.locator('#config').fill(JSON.stringify(config));await page.locator('#restore').click();await page.locator('#close-drawer').click();
   };
   const custom=await current(),panelFrame=custom.assembly.frames.find((f:{id:string})=>f.id==='D');
+  custom.experiment_state.joints['hexapod.y']=22.5; // Explicitly centered distance fixture.
   panelFrame.mount={position_mm:[12,-6,25],quaternion_xyzw:[0,0.6,0,0.8]};await apply(custom);
   const distance=page.locator('#dp-normal-distance'),initial=Number(await distance.textContent());
   expect(await distance.evaluate(el=>el.tagName)).toBe('OUTPUT');await expect(page.locator('#dp-distance')).toHaveCount(0);
@@ -380,7 +389,8 @@ test('Illuminated centroid distance follows manual and continuous motion, with n
   await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
   const snapshot=()=>page.locator('#readout').evaluate(el=>JSON.parse((el as HTMLElement).dataset.state!).snapshot);
   const result=()=>page.locator('#diffraction-panel').evaluate(el=>JSON.parse((el as HTMLElement).dataset.result!));
-  const config=await snapshot();config.assembly.frames.find((f:{id:string})=>f.id==='D').mount={position_mm:[12,-6,25],quaternion_xyzw:[0,.6,0,.8]};
+  const config=await snapshot();config.experiment_state.joints['hexapod.y']=22.5;
+  config.assembly.frames.find((f:{id:string})=>f.id==='D').mount={position_mm:[12,-6,25],quaternion_xyzw:[0,.6,0,.8]};
   config.diffraction.sample_shape={kind:'box',size_mm:[2,2,2]};config.diffraction.beam_size_mm=[2,.2];
   await page.locator('#open-config').click();await page.locator('#json-settings').evaluate(el=>(el as HTMLDetailsElement).open=true);await page.locator('#config').fill(JSON.stringify(config));await page.locator('#restore').click();await page.locator('#close-drawer').click();
   const readout=page.locator('#dp-normal-distance'),calibration=page.locator('#dp-calibration-distance');

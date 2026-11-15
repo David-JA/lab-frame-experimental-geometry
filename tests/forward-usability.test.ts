@@ -10,6 +10,7 @@ it('completes ordinary broad spots with adaptive pixel groups and keeps the full
   for(const [sceneName,make]of [['lab',lab_height_config],['demo',diffraction_demo_config]] as const){
     for(const width of [.001,.003,.01,.03,.05]){
       const c=make();c.diffraction!.intensity_model={kind:'gaussian_3d',sigma_g_invA:width};
+      if(sceneName==='lab')c.experiment_state.joints['hexapod.y']=22.5; // Benchmark an explicitly illuminated fixture.
       const scene=load_scene(c),r=new DiffractionModel().compute(scene,c.diffraction!,{adaptiveBinning:true});
       expect(r.integration_status,r.images!.find(i=>i.status==='unresolved')?.reason).toBe('resolved');
       expect(r.images).toHaveLength(1240);
@@ -17,6 +18,7 @@ it('completes ordinary broad spots with adaptive pixel groups and keeps the full
       rows.push({scene:sceneName,kind:'gaussian',width,ms:r.duration_ms,status:r.integration_status,stride:Math.max(...r.images!.map(i=>i.sampling_stride)),computed:r.images!.length,reason:r.images!.find(i=>i.status==='unresolved')?.reason,evaluations:r.images!.reduce((s,i)=>s+i.evaluations,0)});
     }
     const c=make();c.diffraction!.intensity_model={kind:'uniform_sphere_3d'};
+    if(sceneName==='lab')c.experiment_state.joints['hexapod.y']=22.5;
     const r=new DiffractionModel().compute(load_scene(c),c.diffraction!,{adaptiveBinning:true});
     expect(r.integration_status).toBe('resolved');expect(r.images).toHaveLength(1240);
     rows.push({scene:sceneName,kind:'sphere',width:c.diffraction!.spot_diameter_invA,ms:r.duration_ms,status:r.integration_status,computed:r.images!.length,reason:r.images!.find(i=>i.status==='unresolved')?.reason,evaluations:r.images!.reduce((s,i)=>s+i.evaluations,0)});

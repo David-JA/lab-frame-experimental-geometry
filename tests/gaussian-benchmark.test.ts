@@ -21,7 +21,8 @@ it.runIf(!!process.env.GAUSSIAN_BENCHMARK_OUTPUT)('compares identical Gaussian g
     expect(maxPixel).toBeLessThanOrEqual(1);expect(maxTotal).toBeLessThanOrEqual(1);return {max_pixel_gate_ratio:maxPixel,max_total_gate_ratio:maxTotal};
   }
   for(const [name,make]of [['lab',lab_height_config],['demo',diffraction_demo_config]] as const)for(const sigma of [.001,.003,.01,.03,.05]){
-    const c=make(),p=c.diffraction!;p.intensity_model={kind:'gaussian_3d',sigma_g_invA:sigma};const scene=load_scene(c);
+    const c=make(),p=c.diffraction!;if(name==='lab')c.experiment_state.joints['hexapod.y']=22.5; // Explicitly illuminated benchmark fixture.
+    p.intensity_model={kind:'gaussian_3d',sigma_g_invA:sigma};const scene=load_scene(c);
     const global=new DiffractionModel().compute(scene,p,{adaptiveBinning:true}),spot=global.spots.find(s=>s.hkl.join(',')==='2,0,0')??global.spots[0];
     const cases:{id:string;options:IntegrationOptions&{hkls?:Vec3[]}}[]=[{id:'global-adaptive',options:{adaptiveBinning:true}},{id:'global-stride8',options:{pixelStride:8}},{id:'single-200-stride8',options:{pixelStride:8,hkls:[[2,0,0]]}}];
     // Freeze the original 128-raw timing baseline independently of the UI's window size.

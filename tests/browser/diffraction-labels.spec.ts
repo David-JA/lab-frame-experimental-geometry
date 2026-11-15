@@ -3,6 +3,8 @@ import { test,expect } from '@playwright/test';
 test('HKL auto labels follow displayed contrast while intensities and the full reflection list stay intact',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173/');await page.locator('#open-diffraction').click();
+  await page.locator('.device-tree-row[data-device="hexapod"]').click();
+  await page.locator('[data-joint="hexapod.y"]').fill('22.5');await page.locator('[data-joint="hexapod.y"]').press('Tab');
   await page.locator('#dp-intensity').selectOption('gaussian_3d');await page.locator('#dp-sigma').fill('.03');await page.locator('#dp-sigma').press('Tab');await page.locator('#dp-fit-gray').click();
   const panel=page.locator('#diffraction-panel'),labels=page.locator('.diffraction-hkl-label'),result=()=>panel.evaluate(el=>JSON.parse((el as HTMLElement).dataset.result!));
   const baseline=await result(),count=await labels.count(),options=await page.locator('#dp-spots option').count();

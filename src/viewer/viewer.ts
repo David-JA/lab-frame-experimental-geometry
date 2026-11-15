@@ -5,6 +5,7 @@ import { point, direction, unit } from '../core/math';
 import { detectorSupport } from '../core/detector-support';
 import { SceneLabels, type SceneLabel, type LabelRole } from './scene-labels';
 import { viewPolicy, type ViewerCallbacks, type ViewerView } from './view-policy';
+import { brushedTexture, studioEnvironment, surfaceMaterial, type Finish } from './appearance';
 
 interface Body {id:string;mesh:THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>;color:THREE.Color;edges:THREE.LineBasicMaterial}
 interface PointerGesture {id:number;x:number;y:number;dragged:boolean}
@@ -28,9 +29,14 @@ export class GeometryViewer {
   #labels:SceneLabels;#labelEntries:SceneLabel[]=[];
   #observer:ResizeObserver;
   #grid:THREE.GridHelper;
+  #brush=brushedTexture();
+  #environment=studioEnvironment();
   constructor(private container:HTMLElement,private callbacks:ViewerCallbacks={}){
-    this.scene.background=new THREE.Color('#edf0f2');
+    this.scene.background=new THREE.Color('#eef0f1');
     this.renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+    this.renderer.outputColorSpace=THREE.SRGBColorSpace;
+    this.renderer.toneMapping=THREE.NeutralToneMapping;this.renderer.toneMappingExposure=1;
+    this.scene.environment=this.#environment;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
     this.renderer.domElement.setAttribute('aria-label','实验装置三维场景');container.append(this.renderer.domElement);
     this.#labels=new SceneLabels(container,position=>this.callbacks.onInspectCoincident?.(position));
@@ -42,11 +48,11 @@ export class GeometryViewer {
     canvas.addEventListener('pointermove',this.#onPointerMove);
     canvas.addEventListener('pointerup',this.#onPointerUp);
     canvas.addEventListener('pointercancel',this.#onPointerCancel);
-    this.scene.add(new THREE.HemisphereLight(0xf3f6fa,0xb3bac0,2.4));
-    this.scene.add(new THREE.AmbientLight(0xffffff,.55));
-    const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(500,1000,500);this.scene.add(light);
+    this.scene.add(new THREE.HemisphereLight(0xf7f8fa,0xb0b5bb,.75));
+    const light=new THREE.DirectionalLight(0xfffaf2,2.5);light.position.set(-600,1200,800);this.scene.add(light);
+    const fill=new THREE.DirectionalLight(0xe8f0fa,.65);fill.position.set(700,500,-600);this.scene.add(fill);
     const grid=this.#grid=new THREE.GridHelper(1800,18,0xc1c9cf,0xd7dde1);grid.position.y=-30;
-    grid.material.transparent=true;grid.material.opacity=.5;this.scene.add(grid);
+    grid.material.transparent=true;grid.material.opacity=.32;grid.material.toneMapped=false;this.scene.add(grid);
     this.scene.add(this.#root,this.#dynamic);this.reset_camera();
     this.#observer=new ResizeObserver(()=>this.resize());this.#observer.observe(container);this.resize();
     this.renderer.setAnimationLoop(()=>{this.controls.update();this.renderer.render(this.scene,this.camera);this.#labels.render(this.camera);});
@@ -129,13 +135,21 @@ export class GeometryViewer {
   }
   #body(d:Device){
     const [x,y,z]=d.visual.size_mm;
-    const metal=d.type==='hexapod'||d.type==='theta'||d.type==='xy';
-    const material=new THREE.MeshStandardMaterial({color:d.visual.color,metalness:d.type==='hexapod'?.25:metal?.4:d.type==='rotary'?.02:.12,roughness:metal?.28:.7});
+    const finish:Finish=d.type==='hexapod'||d.type==='detector_support'||d.type==='theta'||d.type==='xy'?'alloy':d.type==='z_stage'?'graphite':d.crystal?'specimen':'coated';
+    const material=surfaceMaterial(finish,d.visual.color,this.#brush);
     const register=(frame:string,geometry:THREE.BufferGeometry,mat:THREE.MeshStandardMaterial,position:Vec3,part:string)=>{
       const mesh=new THREE.Mesh(geometry,mat);mesh.position.copy(vector(position));
-      const edges=new THREE.LineBasicMaterial({color:0x4b545b,transparent:true,opacity:.24});
+      const edges=new THREE.LineBasicMaterial({color:0x4b545b,transparent:true,opacity:.24,toneMapped:false});
       mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry,12),edges));mesh.userData.deviceId=d.id;mesh.userData.bodyPart=part;
       this.#groups.get(frame)!.add(mesh);this.#bodies.push({id:d.id,mesh,color:mat.color.clone(),edges});return mesh;
+    };
+    // Attach stationary housing parts before this device's motion, retaining its fixed mount.
+    const registerFixed=(geometry:THREE.BufferGeometry,mat:THREE.MeshStandardMaterial,position:Vec3,part:string)=>{
+      const f=this.#config!.assembly.frames.find(f=>f.id===d.output_frame)!;
+      const rotation=new THREE.Quaternion(...f.mount.quaternion_xyzw);
+      geometry.applyQuaternion(rotation);
+      const mounted=vector(position).applyQuaternion(rotation).add(vector(f.mount.position_mm));
+      return register(f.parent,geometry,mat,mounted.toArray() as Vec3,part);
     };
     if(d.type==='detector_support'){
       // Keep the LAB-aligned hardware behind the full calibrated panel envelope.
@@ -157,7 +171,7 @@ export class GeometryViewer {
       const offset=d.visual.offset_mm??[0,0,0],thickness=Math.min(20,y);
       const bottom=offset[1]-y/2,diameter=Math.hypot(x,z);
       // The base occupies the bottom of the existing envelope; the table top stays fixed.
-      const baseMaterial=new THREE.MeshStandardMaterial({color:0x77818b,metalness:.3,roughness:.45});
+      const baseMaterial=surfaceMaterial('alloy',0x77818b,this.#brush);
       register(d.output_frame,new THREE.CylinderGeometry(diameter/2,diameter/2,thickness,64),baseMaterial,[offset[0],bottom+thickness/2,offset[2]],'rotary-base');
       if(y>thickness)register(d.output_frame,new THREE.BoxGeometry(x,y-thickness,z),material,[offset[0],offset[1]+thickness/2,offset[2]],'body');
       return;
@@ -166,7 +180,7 @@ export class GeometryViewer {
       const f=this.#config!.assembly.frames.find(f=>f.id===d.output_frame)!,offset=d.visual.offset_mm??[0,0,0];
       const [ux,uy,uz]=d.visual.upper_disc_size_mm??[x*.75,y,z*.75];
       const disc=(dx:number,dy:number,dz:number)=>new THREE.CylinderGeometry(.5,.5,1,64).scale(dx,dy,dz);
-      const adapterMaterial=new THREE.MeshStandardMaterial({color:0x77818b,metalness:.3,roughness:.45});
+      const adapterMaterial=surfaceMaterial('alloy',0x77818b,this.#brush);
       register(d.output_frame,disc(ux,uy,uz),material,offset,'upper-disc');
       register(f.parent,disc(x,y,z),material.clone(),[0,0,0],'lower-disc');
       const thickness=d.visual.adapter_thickness_mm??y;
@@ -188,9 +202,19 @@ export class GeometryViewer {
     }else geometry=new THREE.BoxGeometry(x,y,z);
     const position=[...(d.visual.offset_mm??[0,0,0])] as Vec3;if(d.type==='detector')position[2]+=z/2;
     register(d.output_frame,geometry,material,position,'body');
+    if(d.type==='xy'&&d.visual.fixed_base_size_mm){
+      const base=d.visual.fixed_base_size_mm,center:Vec3=[position[0],position[1],position[2]-(z+base[2])/2];
+      registerFixed(new THREE.BoxGeometry(...base),surfaceMaterial('alloy',0xaeb6bc,this.#brush),center,'fixed-base');
+      const motor=d.visual.motor_size_mm;
+      if(motor)registerFixed(new THREE.BoxGeometry(...motor),surfaceMaterial('graphite',0x30363c,this.#brush),[center[0],center[1]-(base[1]+motor[1])/2,center[2]],'motor');
+    }
+    if(d.type==='theta'&&d.visual.motor_size_mm){
+      const motor=d.visual.motor_size_mm;
+      registerFixed(new THREE.BoxGeometry(...motor),surfaceMaterial('graphite',0x30363c,this.#brush),[position[0]-(x+motor[0])/2,position[1],position[2]],'motor');
+    }
     if(d.detector){
       const [nu,nv]=d.detector.pixels,[px,py]=d.detector.pixel_size_mm;
-      const active=new THREE.Mesh(new THREE.PlaneGeometry(nu*px,nv*py),new THREE.MeshBasicMaterial({color:0x293743,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
+      const active=new THREE.Mesh(new THREE.PlaneGeometry(nu*px,nv*py),new THREE.MeshBasicMaterial({color:0x293743,toneMapped:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
       this.#groups.get(d.output_frame)!.add(active);
       this.#activePanels.push({id:d.id,mesh:active,width:nu*px,height:nv*py});
     }
@@ -213,13 +237,13 @@ export class GeometryViewer {
     });
     const crystalFrames=new Set(c.devices.devices.filter(d=>d.crystal).map(d=>d.crystal!.frame));
     for(const [id,g]of this.#groups){
-      if(!crystalFrames.has(id)){const axes=new THREE.AxesHelper(id==='LAB'?180:35);axes.setColors(...colors.xyz as [number,number,number]);g.add(axes);this.#axes.set(id,axes);}
+      if(!crystalFrames.has(id)){const axes=new THREE.AxesHelper(id==='LAB'?180:35);axes.setColors(...colors.xyz as [number,number,number]);(axes.material as THREE.LineBasicMaterial).toneMapped=false;g.add(axes);this.#axes.set(id,axes);}
     }
     c.devices.devices.forEach(d=>this.#body(d));
   }
   #line(a:Vec3,b:Vec3,color:number,radius=1.5,metallic=false){
     const delta=vector(b).sub(vector(a)),length=delta.length();
-    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,1,16),metallic?new THREE.MeshStandardMaterial({color,metalness:.3,roughness:.3}):new THREE.MeshBasicMaterial({color}));
+    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,1,16),metallic?surfaceMaterial('alloy',color,this.#brush):new THREE.MeshBasicMaterial({color,toneMapped:false}));
     mesh.position.copy(vector(a).add(vector(b)).multiplyScalar(.5));mesh.scale.y=length;
     if(length>1e-12)mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
     this.#dynamic.add(mesh);return mesh;
@@ -235,7 +259,7 @@ export class GeometryViewer {
   #marker(p:Vec3,color:number,label:string,pivot=false,visible=true,targetPoint=false){
     if(visible){
       const geometry=pivot?new THREE.OctahedronGeometry(7):new THREE.SphereGeometry(4,14,10);
-      const marker=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color,wireframe:pivot,depthTest:false}));
+      const marker=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color,wireframe:pivot,depthTest:false,toneMapped:false}));
       marker.position.copy(vector(p));if(targetPoint)marker.renderOrder=3;this.#dynamic.add(marker);
     }
     this.#label(label,this.#dynamic,p,'point',color,targetPoint?7:5,{visible,targetPoint});
@@ -244,7 +268,7 @@ export class GeometryViewer {
     const head=role==='target'?14:11,radius=role==='target'?1.5:1;
     const arrow=new THREE.ArrowHelper(vector(d),vector(p),length,color,head,role==='target'?9:7);this.#dynamic.add(arrow);
     arrow.line.visible=false;
-    (arrow.cone.material as THREE.MeshBasicMaterial).depthTest=false;arrow.cone.renderOrder=3;
+    (arrow.cone.material as THREE.MeshBasicMaterial).depthTest=false;(arrow.cone.material as THREE.MeshBasicMaterial).toneMapped=false;arrow.cone.renderOrder=3;
     const end=p.map((x,i)=>x+d[i]*length) as Vec3;
     const shaft=p.map((x,i)=>x+d[i]*(length-head)) as Vec3;
     if(dashed)this.#dashedLine(p,shaft,color,true,radius);
@@ -365,6 +389,6 @@ export class GeometryViewer {
     canvas.removeEventListener('pointerdown',this.#onPointerDown);canvas.removeEventListener('pointermove',this.#onPointerMove);
     canvas.removeEventListener('pointerup',this.#onPointerUp);canvas.removeEventListener('pointercancel',this.#onPointerCancel);
     this.controls.removeEventListener('change',this.#onControlsChange);this.controls.dispose();
-    this.#clear(this.#root);this.#clear(this.#dynamic);this.#labels.dispose();this.renderer.dispose();this.#geometry=undefined;
+    this.#clear(this.#root);this.#clear(this.#dynamic);this.scene.environment=null;this.#environment.dispose();this.#brush.dispose();this.#labels.dispose();this.renderer.dispose();this.#geometry=undefined;
   }
 }

@@ -183,6 +183,12 @@
         },
         "upper_disc_size_mm": {
           "$ref": "#/$defs/visual/properties/size_mm"
+        },
+        "fixed_base_size_mm": {
+          "$ref": "#/$defs/visual/properties/size_mm"
+        },
+        "motor_size_mm": {
+          "$ref": "#/$defs/visual/properties/size_mm"
         }
       },
       "required": [

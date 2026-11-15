@@ -176,6 +176,7 @@ describe('diffraction numerical contracts DP01–DP06',()=>{
 describe('illuminated source distance',()=>{
   it('uses the illuminated centroid, follows motion, and clears absent or unresolved illumination',()=>{
     const c=lab_height_config(),f=c.assembly.frames.find(f=>f.id==='D')!;
+    c.experiment_state.joints['hexapod.y']=22.5; // Explicitly center this illuminated-source fixture.
     f.mount={position_mm:[12,-6,25],quaternion_xyzw:[0,.6,0,.8]};
     const s=load_scene(c),p=c.diffraction!,model=new DiffractionModel(),initial=model.compute(s,p);
     const panelZ=detectorSupport(c,'detector')!.frame.mount.position_mm[2]+25;
@@ -194,18 +195,17 @@ describe('illuminated source distance',()=>{
 });
 
 describe('live ideal model DP07',()=>{
-  it('reproduces the screenshot miss and verifies the raised laboratory alignment without replacing its assembly',()=>{
+  it('keeps the corrected 670 mm base and 120 mm XYtheta 2 mm below the fixed beam until explicitly centered',()=>{
     const c=lab_height_config(),s=load_scene(c),model=new DiffractionModel(),p=c.diffraction!;
-    expect(c.devices.devices.find(d=>d.id==='rotary')!.visual.size_mm).toEqual([450,770,450]);
+    expect(c.devices.devices.find(d=>d.id==='rotary')!.visual.size_mm).toEqual([450,670,450]);
     expect(c.experiment_state.joints['z_stage.z']).toBe(200);expect(c.experiment_state.joints['hexapod.y']).toBe(20.5);
+    expect(s.get_sample_point('sample').position[1]).toBeCloseTo(1378,8);
+    expect(model.compute(s,p).illumination.status).toBe('outside');
+    // Enlarged visual body intersects the beam; the finite illumination model does not.
+    expect(1378+c.devices.devices.find(d=>d.id==='sample')!.visual.size_mm[2]/2).toBeGreaterThan(1380);
+    expect(1378+p.sample_shape.size_mm[2]/2+p.beam_size_mm[1]/2).toBeLessThan(1380);
+    s.set_joint_value('hexapod.y',22.5);
     const lit=model.compute(s,p);expect(lit.illumination.status).toBe('lit');close(lit.illumination.centroid_lab_mm!,[0,1380,0],1e-7);
-    // The user's screenshot configuration: base R800, P0=55.5, Z200, hex Y0 -> center1375.5.
-    const shown=structuredClone(c);shown.experiment_state.joints['hexapod.y']=0;shown.assembly.frames.find(f=>f.id==='P0')!.mount.position_mm[2]=55.5;
-    const screenshot=load_scene(shown);expect(screenshot.get_sample_point('sample').position[1]).toBeCloseTo(1375.5,8);
-    expect(model.compute(screenshot,p).illumination.status).toBe('outside');
-    // Its 35mm visual body spans the beam, while the physical 3mm body stops at1377mm.
-    expect(1375.5+shown.devices.devices.find(d=>d.id==='sample')!.visual.size_mm[2]/2).toBeGreaterThan(1380);
-    expect(1375.5+p.sample_shape.size_mm[2]/2+p.beam_size_mm[1]/2).toBeLessThan(1380);
     s.set_joint_value('rotary.phi',Math.asin(0.1265/3.59033485)*180/Math.PI);
     expect(model.compute(s,p).spots.find(spot=>spot.hkl.join()==='2,0,0')!.weight).toBeCloseTo(1,10);
   });
